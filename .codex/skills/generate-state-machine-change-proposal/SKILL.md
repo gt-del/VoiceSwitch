@@ -17,25 +17,26 @@ description: Use when VoiceSwitch changes states, events, transitions, scoring r
 
 ## 输入工件
 
-- [README.md](/Users/didi/Code/github/VoiceSwitch/README.md) 中相关设计段落
+- `README.md` 中相关设计段落
 - 当前需求、缺陷或产品决策
-- 相关状态、事件、日志字段上下文
+- 相关状态、事件、日志字段、设置项上下文
 
 ## 固定步骤
 
 1. 对齐当前行为，禁止直接从“想要的结果”跳到新语义。
 2. 明确这次变更属于哪些语义层：状态、事件、转移、评分、cooldown、解释字段。
 3. 用模板写出当前行为和拟议变更，避免模糊描述。
-4. 明确影响面：FFI、日志、测试、兼容性。
+4. 明确影响面：FFI、日志字段、设置项、测试、兼容性。
 5. 判断是否必须追加 `review-rust-swift-ffi-boundary`。
 
 ## 输出工件
 
-- 使用 [proposal-template.md](/Users/didi/Code/github/VoiceSwitch/.codex/skills/generate-state-machine-change-proposal/templates/proposal-template.md)
+- 使用 `templates/proposal-template.md`
 
 ## 验收标准
 
 - 明确写出当前行为与拟议变更
 - 明确列出状态、事件、字段影响面
+- 明确列出受影响日志字段与受影响设置项
 - 明确兼容性与测试影响
 - 明确是否需要 FFI review

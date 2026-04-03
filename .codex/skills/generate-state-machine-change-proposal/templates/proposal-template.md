@@ -14,6 +14,10 @@
 - Scores / Thresholds:
 - Cooldown:
 
+## Affected Log Fields
+
+## Affected Settings
+
 ## Compatibility
 
 ## Observability Changes

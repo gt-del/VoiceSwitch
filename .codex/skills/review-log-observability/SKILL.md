@@ -37,7 +37,7 @@ description: Use when VoiceSwitch changes logging schema, automatic switch expla
 
 ## 输出工件
 
-- 使用 [observability-review-checklist.md](/Users/didi/Code/github/VoiceSwitch/.codex/skills/review-log-observability/templates/observability-review-checklist.md)
+- 使用 `templates/observability-review-checklist.md`
 
 ## 验收标准
 

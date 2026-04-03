@@ -17,6 +17,11 @@
 - [ ] Degrade path evidence is sufficient
 - [ ] Recover path evidence is sufficient
 
+## Diagnostic Copy Alignment
+
+- [ ] Diagnostic copy matches current field semantics
+- [ ] Debug UI copy matches current explanation fields
+
 ## Field Schema Stability
 
 - [ ] Field additions are intentional

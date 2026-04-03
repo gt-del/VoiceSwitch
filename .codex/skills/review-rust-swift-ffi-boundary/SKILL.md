@@ -32,7 +32,7 @@ description: Use when VoiceSwitch changes Rust-Swift FFI types, error codes, own
 
 ## 输出工件
 
-- 使用 [ffi-review-checklist.md](/Users/didi/Code/github/VoiceSwitch/.codex/skills/review-rust-swift-ffi-boundary/templates/ffi-review-checklist.md)
+- 使用 `templates/ffi-review-checklist.md`
 
 ## 验收标准
 
