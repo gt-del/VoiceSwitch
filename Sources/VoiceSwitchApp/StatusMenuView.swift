@@ -12,6 +12,13 @@ struct StatusMenuView: View {
 
             Text("Primary: \(model.selectedPrimaryInputSourceID ?? "Not Set")")
             Text("Voice: \(model.selectedVoiceInputSourceID ?? "Not Set")")
+            Text("Launch at Login: \(model.launchAtLoginEnabled ? "On" : "Off")")
+
+            if let issue = model.configurationIssues.first {
+                Text(issue)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             Divider()
 

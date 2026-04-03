@@ -9,7 +9,8 @@ struct VoiceSwitchAppModelTests {
         let store = InMemorySettingsStore(
             initial: VoiceSwitchSettings(
                 primaryInputSourceID: "primary.id",
-                voiceInputSourceID: "voice.id"
+                voiceInputSourceID: "voice.id",
+                launchAtLoginEnabled: true
             )
         )
         let provider = StubInputSourceProvider(
@@ -31,6 +32,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(model.selectedPrimaryInputSourceID == "primary.id")
         #expect(model.selectedVoiceInputSourceID == "voice.id")
+        #expect(model.launchAtLoginEnabled)
         #expect(model.availableInputSources.count == 2)
         #expect(model.permissionSnapshot == permissions.snapshot())
     }
@@ -46,10 +48,38 @@ struct VoiceSwitchAppModelTests {
 
         model.selectedPrimaryInputSourceID = "com.apple.keylayout.ABC"
         model.selectedVoiceInputSourceID = "com.example.voice"
+        model.launchAtLoginEnabled = true
 
         model.saveSelections()
 
-        #expect(store.saved == VoiceSwitchSettings(primaryInputSourceID: "com.apple.keylayout.ABC", voiceInputSourceID: "com.example.voice"))
+        #expect(store.saved == VoiceSwitchSettings(primaryInputSourceID: "com.apple.keylayout.ABC", voiceInputSourceID: "com.example.voice", launchAtLoginEnabled: true))
+    }
+
+    @Test
+    func loadFlagsUnavailableInputSourcesWithoutCrashing() throws {
+        let store = InMemorySettingsStore(
+            initial: VoiceSwitchSettings(
+                primaryInputSourceID: "missing.primary",
+                voiceInputSourceID: "voice.id"
+            )
+        )
+        let provider = StubInputSourceProvider(
+            sources: [
+                InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+            ]
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: store,
+            inputSourceProvider: provider,
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown))
+        )
+
+        try model.load()
+
+        #expect(model.selectedPrimaryInputSourceID == nil)
+        #expect(model.selectedVoiceInputSourceID == "voice.id")
+        #expect(model.configurationIssues.count == 1)
+        #expect(model.configurationIssues.first?.contains("Primary IME") == true)
     }
 }
 

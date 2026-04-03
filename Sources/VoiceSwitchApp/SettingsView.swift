@@ -6,6 +6,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            if !model.configurationIssues.isEmpty {
+                Section("Configuration Issues") {
+                    ForEach(model.configurationIssues, id: \.self) { issue in
+                        Text(issue)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
             Picker("Primary IME", selection: $model.selectedPrimaryInputSourceID) {
                 Text("Not Set").tag(String?.none)
                 ForEach(model.availableInputSources) { source in
@@ -23,6 +32,10 @@ struct SettingsView: View {
             Section("Permissions") {
                 Text("Accessibility: \(model.permissionSnapshot.accessibility.rawValue)")
                 Text("Input Monitoring: \(model.permissionSnapshot.inputMonitoring.rawValue)")
+            }
+
+            Section("Startup") {
+                Toggle("Launch at Login", isOn: $model.launchAtLoginEnabled)
             }
 
             Button("Save") {

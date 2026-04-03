@@ -11,7 +11,8 @@ struct UserDefaultsSettingsStoreTests {
         let store = UserDefaultsSettingsStore(userDefaults: defaults)
         let expected = VoiceSwitchSettings(
             primaryInputSourceID: "com.apple.keylayout.ABC",
-            voiceInputSourceID: "com.example.voice"
+            voiceInputSourceID: "com.example.voice",
+            launchAtLoginEnabled: true
         )
 
         store.save(expected)
