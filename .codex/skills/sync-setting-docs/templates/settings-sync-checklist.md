@@ -15,5 +15,6 @@
 - [ ] Debug copy is aligned
 - [ ] Validation rule is documented
 - [ ] Default value is documented
+- [ ] Existing config compatibility impact is assessed
 
 ## Notes

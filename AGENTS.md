@@ -6,7 +6,7 @@ VoiceSwitch 是一个运行于 macOS 的菜单栏常驻工具，用于根据用�
 
 本文件是项目级协作约束。
 
-- [README.md](/Users/didi/Code/github/VoiceSwitch/README.md) 是产品与工程设计主文档。
+- `README.md` 是产品与工程设计主文档。
 - `AGENTS.md` 只负责协作约束、角色边界、门禁规则与长期维护要求。
 - 不要把 `AGENTS.md` 写成设置说明书、实现教程或 README 的重复版。
 
@@ -154,7 +154,7 @@ VoiceSwitch 是一个运行于 macOS 的菜单栏常驻工具，用于根据用�
 
 ## 10. 项目内 Agent / Skill 使用约定
 
-- 项目级 agent 定义文件位于 [`.codex/agents/`](/Users/didi/Code/github/VoiceSwitch/.codex/agents)。
-- 项目级 skill 定义文件位于 [`.codex/skills/`](/Users/didi/Code/github/VoiceSwitch/.codex/skills)。
+- 项目级 agent 定义文件位于 `.codex/agents/`。
+- 项目级 skill 定义文件位于 `.codex/skills/`。
 - 执行相关任务时必须显式读取对应定义文件，不依赖工具自动发现。
 - 自定义 agent 和 skill 的内容必须服从本文件定义的术语、门禁与边界。

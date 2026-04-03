@@ -32,7 +32,7 @@ description: Use when VoiceSwitch changes permissions, Event Tap, input sources,
 
 ## 输出工件
 
-- 使用 [permission-regression-checklist.md](/Users/didi/Code/github/VoiceSwitch/.codex/skills/macos-permission-test-checklist/templates/permission-regression-checklist.md)
+- 使用 `templates/permission-regression-checklist.md`
 
 ## 验收标准
 
