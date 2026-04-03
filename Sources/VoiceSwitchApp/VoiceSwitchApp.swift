@@ -4,12 +4,22 @@ import VoiceSwitchKit
 @main
 struct VoiceSwitchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = VoiceSwitchAppModel(
-        settingsStore: UserDefaultsSettingsStore(),
-        inputSourceProvider: SystemInputSourceProvider(),
-        permissionProvider: SystemPermissionStatusProvider(),
-        keyboardEventService: KeyboardEventTapService(permissionProvider: SystemPermissionStatusProvider())
-    )
+    @State private var model: VoiceSwitchAppModel = {
+        let permissionProvider = SystemPermissionStatusProvider()
+        let inputSourceSwitchingService = InputSourceSwitchingService()
+
+        return VoiceSwitchAppModel(
+            settingsStore: UserDefaultsSettingsStore(),
+            inputSourceProvider: SystemInputSourceProvider(),
+            inputSourceSwitchingService: inputSourceSwitchingService,
+            inputSourceObservationService: InputSourceObservationService(
+                inputSourceSwitchingService: inputSourceSwitchingService
+            ),
+            permissionProvider: permissionProvider,
+            keyboardEventService: KeyboardEventTapService(permissionProvider: permissionProvider),
+            cooldownScheduler: CooldownScheduler()
+        )
+    }()
 
     var body: some Scene {
         MenuBarExtra("VoiceSwitch", systemImage: "waveform.and.mic") {

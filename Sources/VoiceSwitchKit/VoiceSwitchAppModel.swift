@@ -12,6 +12,10 @@ public final class VoiceSwitchAppModel {
     public private(set) var lastEngineAction: EngineAction?
     public private(set) var eventTapStatus: KeyboardListenerState
     public private(set) var lastRawKeyboardEventSummary: String?
+    public private(set) var lastProgrammaticSwitchTargetInputSourceID: String?
+    public private(set) var lastProgrammaticSwitchAt: Date?
+    public private(set) var isCooldownActive: Bool
+    public private(set) var cooldownDeadline: Date?
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
     public var launchAtLoginEnabled: Bool
@@ -20,24 +24,36 @@ public final class VoiceSwitchAppModel {
     private let settingsStore: SettingsStoring
     private let inputSourceProvider: InputSourceProviding
     private let inputSourceSwitchingService: InputSourceSwitching
+    private let inputSourceObservationService: InputSourceObserving?
     private let permissionProvider: PermissionStatusProviding
     private let engineBridge: any EngineBridging
     private let keyboardEventService: KeyboardEventListening?
+    private let cooldownScheduler: CooldownScheduling
+    private let nowProvider: @Sendable () -> Date
+    private let cooldownDuration: TimeInterval
 
     public init(
         settingsStore: SettingsStoring,
         inputSourceProvider: InputSourceProviding,
         inputSourceSwitchingService: InputSourceSwitching = InputSourceSwitchingService(),
+        inputSourceObservationService: InputSourceObserving? = nil,
         permissionProvider: PermissionStatusProviding,
         engineBridge: any EngineBridging = RustEngineBridge(),
-        keyboardEventService: KeyboardEventListening? = nil
+        keyboardEventService: KeyboardEventListening? = nil,
+        cooldownScheduler: CooldownScheduling = CooldownScheduler(),
+        nowProvider: @escaping @Sendable () -> Date = Date.init,
+        cooldownDuration: TimeInterval = 5
     ) {
         self.settingsStore = settingsStore
         self.inputSourceProvider = inputSourceProvider
         self.inputSourceSwitchingService = inputSourceSwitchingService
+        self.inputSourceObservationService = inputSourceObservationService
         self.permissionProvider = permissionProvider
         self.engineBridge = engineBridge
         self.keyboardEventService = keyboardEventService
+        self.cooldownScheduler = cooldownScheduler
+        self.nowProvider = nowProvider
+        self.cooldownDuration = cooldownDuration
         self.availableInputSources = []
         self.permissionSnapshot = PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)
         self.configurationIssues = []
@@ -46,6 +62,10 @@ public final class VoiceSwitchAppModel {
         self.lastEngineAction = nil
         self.eventTapStatus = .stopped
         self.lastRawKeyboardEventSummary = nil
+        self.lastProgrammaticSwitchTargetInputSourceID = nil
+        self.lastProgrammaticSwitchAt = nil
+        self.isCooldownActive = false
+        self.cooldownDeadline = nil
         self.selectedPrimaryInputSourceID = nil
         self.selectedVoiceInputSourceID = nil
         self.launchAtLoginEnabled = false
@@ -84,6 +104,17 @@ public final class VoiceSwitchAppModel {
             } else {
                 Task { @MainActor [weak self] in
                     self?.handleKeyboardEvent(summary)
+                }
+            }
+        }
+        inputSourceObservationService?.start { [weak self] observation in
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleInputSourceObservation(observation)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleInputSourceObservation(observation)
                 }
             }
         }
@@ -136,6 +167,33 @@ public final class VoiceSwitchAppModel {
         }
     }
 
+    public func handleInputSourceObservation(_ observation: InputSourceObservation) {
+        let now = nowProvider()
+        switch observation {
+        case let .changed(inputSourceID, rawDescription):
+            let origin = classifyInputSourceChange(
+                observedInputSourceID: inputSourceID,
+                at: now
+            )
+
+            logEntries.append(
+                "Input source observed raw=\(rawDescription) currentInputSource=\(inputSourceID ?? "none") origin=\(origin)"
+            )
+
+            guard origin == "manual" else {
+                return
+            }
+
+            do {
+                try advanceEngine(for: .manualSwitchDetected, rawDescription: rawDescription)
+            } catch {
+                logEntries.append(
+                    "Input source observed raw=\(rawDescription) event=manualSwitchDetected failed error=\(String(describing: error))"
+                )
+            }
+        }
+    }
+
     private func advanceEngine(for event: InputBehavior, rawDescription: String?) throws {
         let previousState = currentEngineState
         let result = try engineBridge.transition(from: previousState, event: event)
@@ -149,6 +207,17 @@ public final class VoiceSwitchAppModel {
             message = "Keyboard raw=\(rawDescription) " + message
         }
         logEntries.append(message)
+
+        if previousState == .cooldown, event != .cooldownExpired, result.action == .noOp {
+            logEntries.append("Cooldown state=active cooldownSkipped event=\(event.rawValue)")
+        }
+
+        if event == .cooldownExpired {
+            isCooldownActive = false
+            cooldownDeadline = nil
+            logEntries.append("Cooldown event=cooldownExpired state=ended")
+        }
+
         executeEngineAction(result.action)
     }
 
@@ -167,7 +236,7 @@ public final class VoiceSwitchAppModel {
                 configurationLabel: "voice"
             )
         case .enterCooldown:
-            logEntries.append("Input source action=enterCooldown switchResult=skipped reason=cooldown timer is not implemented yet")
+            scheduleCooldown()
         case .noOp:
             break
         }
@@ -211,6 +280,8 @@ public final class VoiceSwitchAppModel {
 
         do {
             try inputSourceSwitchingService.switchToInputSource(id: targetInputSourceID)
+            lastProgrammaticSwitchTargetInputSourceID = targetInputSourceID
+            lastProgrammaticSwitchAt = nowProvider()
             logEntries.append(
                 "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=success"
             )
@@ -218,6 +289,58 @@ public final class VoiceSwitchAppModel {
             logEntries.append(
                 "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=failed reason=\(error.localizedDescription)"
             )
+        }
+    }
+
+    private func classifyInputSourceChange(observedInputSourceID: String?, at now: Date) -> String {
+        guard
+            let targetID = lastProgrammaticSwitchTargetInputSourceID,
+            let switchedAt = lastProgrammaticSwitchAt,
+            observedInputSourceID == targetID,
+            now.timeIntervalSince(switchedAt) <= 1
+        else {
+            return "manual"
+        }
+
+        lastProgrammaticSwitchTargetInputSourceID = nil
+        lastProgrammaticSwitchAt = nil
+        return "programmatic"
+    }
+
+    private func scheduleCooldown() {
+        let deadline = nowProvider().addingTimeInterval(cooldownDuration)
+        let wasActive = isCooldownActive
+
+        isCooldownActive = true
+        cooldownDeadline = deadline
+        cooldownScheduler.schedule(deadline: deadline) { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleCooldownTimerFired()
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleCooldownTimerFired()
+                }
+            }
+        }
+
+        if wasActive {
+            logEntries.append("Cooldown event=cooldownReset deadline=\(deadline.timeIntervalSince1970)")
+        } else {
+            logEntries.append("Cooldown event=cooldownStarted deadline=\(deadline.timeIntervalSince1970)")
+        }
+    }
+
+    private func handleCooldownTimerFired() {
+        do {
+            try advanceEngine(for: .cooldownExpired, rawDescription: nil)
+        } catch {
+            logEntries.append("Cooldown event=cooldownExpired failed error=\(String(describing: error))")
         }
     }
 }
