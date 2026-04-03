@@ -19,6 +19,7 @@ public final class VoiceSwitchAppModel {
 
     private let settingsStore: SettingsStoring
     private let inputSourceProvider: InputSourceProviding
+    private let inputSourceSwitchingService: InputSourceSwitching
     private let permissionProvider: PermissionStatusProviding
     private let engineBridge: any EngineBridging
     private let keyboardEventService: KeyboardEventListening?
@@ -26,12 +27,14 @@ public final class VoiceSwitchAppModel {
     public init(
         settingsStore: SettingsStoring,
         inputSourceProvider: InputSourceProviding,
+        inputSourceSwitchingService: InputSourceSwitching = InputSourceSwitchingService(),
         permissionProvider: PermissionStatusProviding,
         engineBridge: any EngineBridging = RustEngineBridge(),
         keyboardEventService: KeyboardEventListening? = nil
     ) {
         self.settingsStore = settingsStore
         self.inputSourceProvider = inputSourceProvider
+        self.inputSourceSwitchingService = inputSourceSwitchingService
         self.permissionProvider = permissionProvider
         self.engineBridge = engineBridge
         self.keyboardEventService = keyboardEventService
@@ -146,5 +149,75 @@ public final class VoiceSwitchAppModel {
             message = "Keyboard raw=\(rawDescription) " + message
         }
         logEntries.append(message)
+        executeEngineAction(result.action)
+    }
+
+    private func executeEngineAction(_ action: EngineAction) {
+        switch action {
+        case .switchToPrimary:
+            executeInputSourceSwitch(
+                action: action,
+                targetInputSourceID: selectedPrimaryInputSourceID,
+                configurationLabel: "primary"
+            )
+        case .switchToVoice:
+            executeInputSourceSwitch(
+                action: action,
+                targetInputSourceID: selectedVoiceInputSourceID,
+                configurationLabel: "voice"
+            )
+        case .enterCooldown:
+            logEntries.append("Input source action=enterCooldown switchResult=skipped reason=cooldown timer is not implemented yet")
+        case .noOp:
+            break
+        }
+    }
+
+    private func executeInputSourceSwitch(
+        action: EngineAction,
+        targetInputSourceID: String?,
+        configurationLabel: String
+    ) {
+        guard let targetInputSourceID else {
+            logEntries.append(
+                "Input source action=\(action.rawValue) switchResult=skipped reason=\(configurationLabel) input source is not configured"
+            )
+            return
+        }
+
+        guard availableInputSources.contains(where: { $0.id == targetInputSourceID }) else {
+            logEntries.append(
+                "Input source action=\(action.rawValue) targetInputSource=\(targetInputSourceID) switchResult=skipped reason=target input source is unavailable"
+            )
+            return
+        }
+
+        let currentInputSourceID: String?
+        do {
+            currentInputSourceID = try inputSourceSwitchingService.currentSelectedInputSourceID()
+        } catch {
+            logEntries.append(
+                "Input source action=\(action.rawValue) targetInputSource=\(targetInputSourceID) switchResult=failed reason=\(String(describing: error))"
+            )
+            return
+        }
+
+        if currentInputSourceID == targetInputSourceID {
+            logEntries.append(
+                "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=skipped reason=target already selected"
+            )
+            return
+        }
+
+        do {
+            try inputSourceSwitchingService.switchToInputSource(id: targetInputSourceID)
+            logEntries.append(
+                "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=success"
+            )
+        } catch {
+            logEntries.append(
+                "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=failed reason=\(error.localizedDescription)"
+            )
+        }
     }
 }

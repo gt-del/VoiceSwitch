@@ -9,6 +9,11 @@ public protocol InputSourceProviding: Sendable {
     func selectableInputSources() throws -> [InputSourceDescriptor]
 }
 
+public protocol InputSourceSwitching: Sendable {
+    func currentSelectedInputSourceID() throws -> String?
+    func switchToInputSource(id: String) throws
+}
+
 public protocol PermissionStatusProviding: Sendable {
     func snapshot() -> PermissionSnapshot
 }
