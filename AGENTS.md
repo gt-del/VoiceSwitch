@@ -158,3 +158,13 @@ VoiceSwitch 是一个运行于 macOS 的菜单栏常驻工具，用于根据用�
 - 项目级 skill 定义文件位于 `.codex/skills/`。
 - 执行相关任务时必须显式读取对应定义文件，不依赖工具自动发现。
 - 自定义 agent 和 skill 的内容必须服从本文件定义的术语、门禁与边界。
+
+## 11. 外部 Skill 使用约定
+
+- `rust-best-practices` 已作为项目级 vendored skill 放在 `.codex/skills/rust-best-practices/`，在编写或修改 Rust 代码前使用。
+- 该 skill 只补充编码实践，不覆盖本仓库的状态机语义、门禁、边界和验收标准。
+- Rust 代码改动仍必须先满足本仓库门禁：
+  - 语义变更先走 `generate-state-machine-change-proposal`
+  - FFI 变更先走 `review-rust-swift-ffi-boundary`
+  - 日志或解释字段变更先走 `review-log-observability`
+- 若该 vendored skill 与本仓库约束冲突，以 `AGENTS.md` 和项目内 skill 为准。

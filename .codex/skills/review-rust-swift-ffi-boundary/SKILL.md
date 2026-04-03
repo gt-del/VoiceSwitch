@@ -39,3 +39,4 @@ description: Use when VoiceSwitch changes Rust-Swift FFI types, error codes, own
 - 所有权、生命周期、线程归属都有明确结论
 - 枚举映射和错误码稳定性有明确结论
 - 日志 / 诊断字段跨边界变化被单独说明
+- 若边界变更伴随 Rust core 实现调整，追加执行 `apply-rust-core-implementation-standards`
