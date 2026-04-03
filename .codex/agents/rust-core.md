@@ -36,6 +36,12 @@ model: inherit
 - 不得引入 macOS 平台 API 依赖作为核心规则前提。
 - 只消费抽象事件，不消费 AppKit 生命周期语义。
 - 不得直接定义菜单栏状态文案、设置页字段文案、权限引导文案。
+- 写或改 Rust core 代码时，先使用项目内的 `rust-best-practices`。
+- 优先采用明确错误边界，避免无理由 `unwrap()` 或 `expect()`。
+- 避免为绕过 borrow checker 滥用 `clone()`。
+- 优先用类型约束或显式校验表达业务不变量。
+- 需要补 tracing、test、replayability 影响说明。
+- 状态、事件、转移、cooldown 语义、日志解释字段、FFI 边界仍由本仓库定义，不受外部 skill 决定。
 
 ## 不可越权修改对象
 

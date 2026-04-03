@@ -40,3 +40,4 @@ description: Use when VoiceSwitch changes states, events, transitions, scoring r
 - 明确列出受影响日志字段与受影响设置项
 - 明确兼容性与测试影响
 - 明确是否需要 FFI review
+- 若提案进入 Rust 实现，后续必须执行 `apply-rust-core-implementation-standards`

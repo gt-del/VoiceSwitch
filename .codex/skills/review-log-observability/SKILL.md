@@ -45,3 +45,4 @@ description: Use when VoiceSwitch changes logging schema, automatic switch expla
 - degrade / recover 证据覆盖明确
 - schema 稳定性检查有明确结论
 - 明确列出受影响的 QA 或调试消费方
+- 若解释字段变化来自 Rust core 改动，追加执行 `apply-rust-core-implementation-standards`
