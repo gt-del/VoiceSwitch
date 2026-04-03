@@ -7,6 +7,9 @@ public final class VoiceSwitchAppModel {
     public private(set) var availableInputSources: [InputSourceDescriptor]
     public private(set) var permissionSnapshot: PermissionSnapshot
     public private(set) var configurationIssues: [String]
+    public private(set) var currentEngineState: EngineState
+    public private(set) var lastInputBehavior: InputBehavior?
+    public private(set) var lastEngineAction: EngineAction?
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
     public var launchAtLoginEnabled: Bool
@@ -15,18 +18,24 @@ public final class VoiceSwitchAppModel {
     private let settingsStore: SettingsStoring
     private let inputSourceProvider: InputSourceProviding
     private let permissionProvider: PermissionStatusProviding
+    private let engineBridge: any EngineBridging
 
     public init(
         settingsStore: SettingsStoring,
         inputSourceProvider: InputSourceProviding,
-        permissionProvider: PermissionStatusProviding
+        permissionProvider: PermissionStatusProviding,
+        engineBridge: any EngineBridging = RustEngineBridge()
     ) {
         self.settingsStore = settingsStore
         self.inputSourceProvider = inputSourceProvider
         self.permissionProvider = permissionProvider
+        self.engineBridge = engineBridge
         self.availableInputSources = []
         self.permissionSnapshot = PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)
         self.configurationIssues = []
+        self.currentEngineState = .idlePrimary
+        self.lastInputBehavior = nil
+        self.lastEngineAction = nil
         self.selectedPrimaryInputSourceID = nil
         self.selectedVoiceInputSourceID = nil
         self.launchAtLoginEnabled = false
@@ -67,5 +76,26 @@ public final class VoiceSwitchAppModel {
         )
         settingsStore.save(settings)
         logEntries.append("Saved settings at \(Date.now.formatted(date: .omitted, time: .standard))")
+    }
+
+    public func sendTestEvent(_ event: InputBehavior) throws {
+        let previousState = currentEngineState
+        let result = try engineBridge.transition(from: previousState, event: event)
+
+        lastInputBehavior = event
+        currentEngineState = result.state
+        lastEngineAction = result.action
+
+        logEntries.append(
+            "Engine event=\(event.rawValue) previousState=\(previousState.rawValue) newState=\(result.state.rawValue) action=\(result.action.rawValue) diagnostic=\(result.diagnostic.message)"
+        )
+    }
+
+    public func dispatchTestEvent(_ event: InputBehavior) {
+        do {
+            try sendTestEvent(event)
+        } catch {
+            logEntries.append("Engine event=\(event.rawValue) failed error=\(String(describing: error))")
+        }
     }
 }

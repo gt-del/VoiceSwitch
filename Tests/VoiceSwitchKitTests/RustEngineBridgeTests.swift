@@ -18,6 +18,17 @@ struct RustEngineBridgeTests {
         #expect(result.action == .noOp)
         #expect(result.diagnostic.message == "Entered optionPending")
     }
+
+    @Test
+    func bridgeCanInvokeRustCli() throws {
+        let bridge = RustEngineBridge()
+
+        let result = try bridge.transition(from: .idlePrimary, event: .optionPressed)
+
+        #expect(result.state == .optionPending)
+        #expect(result.action == .noOp)
+        #expect(result.diagnostic.message == "Entered optionPending")
+    }
 }
 
 private struct StubRustCommandRunner: RustCommandRunning {

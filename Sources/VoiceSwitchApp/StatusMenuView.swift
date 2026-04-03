@@ -13,6 +13,8 @@ struct StatusMenuView: View {
             Text("Primary: \(model.selectedPrimaryInputSourceID ?? "Not Set")")
             Text("Voice: \(model.selectedVoiceInputSourceID ?? "Not Set")")
             Text("Launch at Login: \(model.launchAtLoginEnabled ? "On" : "Off")")
+            Text("Engine State: \(model.currentEngineState.rawValue)")
+            Text("Last Action: \(model.lastEngineAction?.rawValue ?? "none")")
 
             if let issue = model.configurationIssues.first {
                 Text(issue)
