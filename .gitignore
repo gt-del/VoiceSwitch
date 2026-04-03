@@ -1,0 +1,3 @@
+.build/
+.swiftpm/
+RustCore/target/
