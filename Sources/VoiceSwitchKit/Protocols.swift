@@ -12,3 +12,9 @@ public protocol InputSourceProviding: Sendable {
 public protocol PermissionStatusProviding: Sendable {
     func snapshot() -> PermissionSnapshot
 }
+
+public protocol KeyboardEventListening: AnyObject {
+    var isRunning: Bool { get }
+    func start(eventHandler: @escaping @Sendable (KeyboardEventSummary) -> Void)
+    func stop()
+}

@@ -12,6 +12,9 @@ struct LogPanelView: View {
             Text("Current State: \(model.currentEngineState.rawValue)")
             Text("Last Event: \(model.lastInputBehavior?.rawValue ?? "none")")
             Text("Last Action: \(model.lastEngineAction?.rawValue ?? "none")")
+            Text("Event Tap: \(model.eventTapStatus.rawValue)")
+            Text("Accessibility: \(model.permissionSnapshot.accessibility.rawValue)")
+            Text("Last Raw Keyboard Event: \(model.lastRawKeyboardEventSummary ?? "none")")
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
                 Button("Send Option Pressed") {

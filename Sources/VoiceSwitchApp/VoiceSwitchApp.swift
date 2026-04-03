@@ -7,7 +7,8 @@ struct VoiceSwitchApp: App {
     @State private var model = VoiceSwitchAppModel(
         settingsStore: UserDefaultsSettingsStore(),
         inputSourceProvider: SystemInputSourceProvider(),
-        permissionProvider: SystemPermissionStatusProvider()
+        permissionProvider: SystemPermissionStatusProvider(),
+        keyboardEventService: KeyboardEventTapService(permissionProvider: SystemPermissionStatusProvider())
     )
 
     var body: some Scene {
