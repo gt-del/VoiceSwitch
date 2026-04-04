@@ -10,6 +10,8 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 INFO_PLIST_SOURCE="$SCRIPT_DIR/VoiceSwitch-Info.plist"
 EXECUTABLE_NAME="VoiceSwitchApp"
+ICONSET_DIR="$REPO_DIR/Assets/AppIcon.iconset"
+ICON_FILE="$RESOURCES_DIR/AppIcon.icns"
 
 swift build --product "$EXECUTABLE_NAME"
 
@@ -25,6 +27,13 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$INFO_PLIST_SOURCE" "$CONTENTS_DIR/Info.plist"
 cp "$EXECUTABLE_PATH" "$MACOS_DIR/$EXECUTABLE_NAME"
 chmod +x "$MACOS_DIR/$EXECUTABLE_NAME"
+
+if [ ! -d "$ICONSET_DIR" ]; then
+  echo "error: iconset not found at $ICONSET_DIR" >&2
+  exit 1
+fi
+
+iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
 
 if command -v codesign >/dev/null 2>&1; then
   codesign --force --deep --sign - "$APP_BUNDLE" >/dev/null 2>&1 || true

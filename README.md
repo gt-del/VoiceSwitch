@@ -25,6 +25,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 ## 当前产品结构
 
 - 启动应用后直接显示主窗口，可在窗口内完成主要配置
+- 关闭主窗口后应用不会退出，会继续保留 Dock 与菜单栏入口常驻运行
 - `Dashboard` 展示当前状态、权限、监听状态、当前 IME 和最近动作
 - `Settings` 负责 Input Sources、Behavior、Permissions & System 配置
 - `Logs` 展示最近日志、原始事件与调试按钮
@@ -164,6 +165,20 @@ swift test
 ```bash
 swift run VoiceSwitchApp
 ```
+
+开发态 `.app` 运行：
+
+```bash
+./scripts/run-dev-app.sh
+```
+
+这会在仓库根目录生成并打开 `.dev-app/VoiceSwitch.app`，同时写入：
+
+- 普通 Dock App metadata
+- `AppIcon.icns`
+- 主窗口 + 菜单栏并存的运行形态
+
+如果要验证更接近成品的软件形态，优先使用 `.app` 启动，而不是只用 `swift run`。
 
 ## 已知限制
 
