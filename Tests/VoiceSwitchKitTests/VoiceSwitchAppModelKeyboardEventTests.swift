@@ -107,7 +107,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
                         sourceState: .idlePrimary,
                         targetState: .voiceMode
                     ),
-                    timer: EngineTimer(kind: .voiceActivationDelay, delaySeconds: 0.05)
+                    timer: EngineTimer(kind: .switchToVoiceDelay, delaySeconds: 0.05)
                 )
             ),
             keyboardEventService: service

@@ -204,8 +204,8 @@ fn build_configuration(configuration: VSConfiguration) -> EngineConfiguration {
     }
 
     EngineConfiguration {
-        voice_activation_delay: configuration.voice_activation_delay,
-        primary_return_delay: configuration.primary_return_delay,
+        switch_to_voice_delay: configuration.voice_activation_delay,
+        switch_to_primary_delay: configuration.primary_return_delay,
         cooldown_duration: configuration.cooldown_duration,
         typing_key_whitelist,
     }
@@ -272,8 +272,8 @@ impl From<EngineTimer> for VSTimer {
 impl From<EngineTimerKind> for VSTimerKind {
     fn from(value: EngineTimerKind) -> Self {
         match value {
-            EngineTimerKind::VoiceActivationDelay => Self::VoiceActivationDelay,
-            EngineTimerKind::PrimaryReturnDelay => Self::PrimaryReturnDelay,
+            EngineTimerKind::SwitchToVoiceDelay => Self::VoiceActivationDelay,
+            EngineTimerKind::SwitchToPrimaryDelay => Self::PrimaryReturnDelay,
             EngineTimerKind::Cooldown => Self::Cooldown,
         }
     }

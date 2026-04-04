@@ -16,8 +16,8 @@ struct UserDefaultsSettingsStoreTests {
             voiceInputSourceID: "com.example.voice",
             isEnabled: false,
             launchAtLoginEnabled: true,
-            voiceActivationDelay: 0.25,
-            primaryReturnDelay: 0.1,
+            switchToVoiceDelay: 0.25,
+            switchToPrimaryDelay: 0.1,
             cooldownDuration: 7,
         )
 
@@ -39,8 +39,8 @@ struct UserDefaultsSettingsStoreTests {
         let actual = store.load()
 
         #expect(actual.isEnabled)
-        #expect(actual.voiceActivationDelay == 0)
-        #expect(actual.primaryReturnDelay == 0)
+        #expect(actual.switchToVoiceDelay == 0)
+        #expect(actual.switchToPrimaryDelay == 0)
     }
 
     @Test
@@ -55,8 +55,26 @@ struct UserDefaultsSettingsStoreTests {
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         let actual = store.load()
 
-        #expect(actual.voiceActivationDelay == 0.18)
-        #expect(actual.primaryReturnDelay == 0.1)
+        #expect(actual.switchToVoiceDelay == 0.18)
+        #expect(actual.switchToPrimaryDelay == 0.1)
+        #expect(defaults.object(forKey: "voiceSwitch.voiceActivationDelay") == nil)
+        #expect(defaults.object(forKey: "voiceSwitch.primaryReturnDelay") == nil)
+    }
+
+    @Test
+    func loadPrefersNewToggleDelayKeys() {
+        let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
+        defaults.removePersistentDomain(forName: #function)
+        defaults.removePersistentDomain(forName: legacyDomain)
+        defaults.set(0.22, forKey: "voiceSwitch.switchToVoiceDelay")
+        defaults.set(0.11, forKey: "voiceSwitch.switchToPrimaryDelay")
+
+        let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
+        let actual = store.load()
+
+        #expect(actual.switchToVoiceDelay == 0.22)
+        #expect(actual.switchToPrimaryDelay == 0.11)
     }
 
     @Test
@@ -71,8 +89,8 @@ struct UserDefaultsSettingsStoreTests {
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         let actual = store.load()
 
-        #expect(actual.voiceActivationDelay == 0)
-        #expect(actual.primaryReturnDelay == 0)
+        #expect(actual.switchToVoiceDelay == 0)
+        #expect(actual.switchToPrimaryDelay == 0)
     }
 
     @Test
@@ -99,17 +117,18 @@ struct UserDefaultsSettingsStoreTests {
 
         #expect(actual.primaryInputSourceID == "im.rime.inputmethod.Squirrel.Hans")
         #expect(actual.voiceInputSourceID == "com.bytedance.inputmethod.doubaoime.pinyin")
-        #expect(actual.voiceActivationDelay == 0.18)
-        #expect(actual.primaryReturnDelay == 0)
+        #expect(actual.switchToVoiceDelay == 0.18)
+        #expect(actual.switchToPrimaryDelay == 0)
         #expect(defaults.persistentDomain(forName: legacyDomain) == nil)
     }
 
     @Test
-    func savePurgesLegacyDelayKeysFromCurrentDomain() throws {
+    func savePurgesLegacyDelayKeysAndWritesNewToggleDelayKeys() throws {
         let defaults = UserDefaults(suiteName: #function)!
         let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
         defaults.removePersistentDomain(forName: legacyDomain)
+        defaults.set(0.2, forKey: "voiceSwitch.voiceActivationDelay")
         defaults.set(0.8, forKey: "voiceSwitch.primaryReturnDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
@@ -117,13 +136,16 @@ struct UserDefaultsSettingsStoreTests {
             VoiceSwitchSettings(
                 primaryInputSourceID: "im.rime.inputmethod.Squirrel.Hans",
                 voiceInputSourceID: "com.bytedance.inputmethod.doubaoime.pinyin",
-                voiceActivationDelay: 0,
-                primaryReturnDelay: 0,
+                switchToVoiceDelay: 0,
+                switchToPrimaryDelay: 0,
                 cooldownDuration: 5
             )
         )
 
-        #expect(defaults.object(forKey: "voiceSwitch.primaryReturnDelay") != nil)
+        #expect(defaults.object(forKey: "voiceSwitch.voiceActivationDelay") == nil)
+        #expect(defaults.object(forKey: "voiceSwitch.primaryReturnDelay") == nil)
+        #expect(defaults.object(forKey: "voiceSwitch.switchToVoiceDelay") != nil)
+        #expect(defaults.object(forKey: "voiceSwitch.switchToPrimaryDelay") != nil)
     }
 
     @Test

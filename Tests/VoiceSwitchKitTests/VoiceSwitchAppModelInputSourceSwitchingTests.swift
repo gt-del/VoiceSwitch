@@ -46,7 +46,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
     }
 
     @Test
-    func voiceActivationDelayDefersVoiceSwitchUntilSchedulerFires() throws {
+    func switchToVoiceDelayDefersVoiceSwitchUntilSchedulerFires() throws {
         let switchingService = StubInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
         let scheduler = StubActionScheduler()
         let model = VoiceSwitchAppModel(
@@ -74,10 +74,10 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                         sourceState: .idlePrimary,
                         targetState: .voiceMode
                     ),
-                    timer: EngineTimer(kind: .voiceActivationDelay, delaySeconds: 0.05)
+                    timer: EngineTimer(kind: .switchToVoiceDelay, delaySeconds: 0.05)
                 )
             ),
-            voiceActivationScheduler: scheduler
+            switchToVoiceScheduler: scheduler
         )
 
         try model.load()
@@ -132,7 +132,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
     }
 
     @Test
-    func primaryReturnDelayDefersPrimarySwitchUntilSchedulerFires() throws {
+    func switchToPrimaryDelayDefersPrimarySwitchUntilSchedulerFires() throws {
         let switchingService = StubInputSourceSwitchingService(currentInputSourceID: "com.example.voice")
         let scheduler = StubActionScheduler()
         let model = VoiceSwitchAppModel(
@@ -160,10 +160,10 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                         sourceState: .voiceMode,
                         targetState: .idlePrimary
                     ),
-                    timer: EngineTimer(kind: .primaryReturnDelay, delaySeconds: 0.05)
+                    timer: EngineTimer(kind: .switchToPrimaryDelay, delaySeconds: 0.05)
                 )
             ),
-            primaryReturnScheduler: scheduler
+            switchToPrimaryScheduler: scheduler
         )
 
         try model.load()

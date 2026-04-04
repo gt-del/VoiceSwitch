@@ -22,8 +22,8 @@ struct VoiceSwitchApp: App {
                 permissionProvider: permissionProvider,
                 launchAtLoginController: LaunchAtLoginService(),
                 keyboardEventService: KeyboardEventTapService(permissionProvider: permissionProvider),
-                voiceActivationScheduler: CooldownScheduler(),
-                primaryReturnScheduler: CooldownScheduler(),
+                switchToVoiceScheduler: CooldownScheduler(),
+                switchToPrimaryScheduler: CooldownScheduler(),
                 cooldownScheduler: CooldownScheduler()
             )
         }()

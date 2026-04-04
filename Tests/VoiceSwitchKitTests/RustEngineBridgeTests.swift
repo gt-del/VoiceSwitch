@@ -7,7 +7,7 @@ struct RustEngineBridgeTests {
     func bridgeDecodesTransitionResult() throws {
         let runner = StubRustCommandRunner(
             output: """
-            {"state":"voiceMode","action":"switchToVoice","diagnostic":{"trigger":"controlPressed","reason":"pressed_control_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceMode"},"timer":{"kind":"voiceActivationDelay","delaySeconds":0.05}}
+            {"state":"voiceMode","action":"switchToVoice","diagnostic":{"trigger":"controlPressed","reason":"pressed_control_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceMode"},"timer":{"kind":"switchToVoiceDelay","delaySeconds":0.05}}
             """.data(using: .utf8)!
         )
 
@@ -24,7 +24,7 @@ struct RustEngineBridgeTests {
         #expect(result.diagnostic.reason == "pressed_control_switch_to_voice")
         #expect(result.diagnostic.sourceState == .idlePrimary)
         #expect(result.diagnostic.targetState == .voiceMode)
-        #expect(result.timer?.kind == .voiceActivationDelay)
+        #expect(result.timer?.kind == .switchToVoiceDelay)
         #expect(result.timer?.delaySeconds == 0.05)
     }
 
@@ -41,15 +41,15 @@ struct RustEngineBridgeTests {
             from: .idlePrimary,
             event: .controlPressed,
             configuration: EngineConfiguration(
-                voiceActivationDelay: 0.25,
-                primaryReturnDelay: 0.1,
+                switchToVoiceDelay: 0.25,
+                switchToPrimaryDelay: 0.1,
                 cooldownDuration: 7,
                 typingKeyWhitelist: [.letters, .space]
             )
         )
 
-        #expect(runner.lastConfiguration?.voiceActivationDelay == 0.25)
-        #expect(runner.lastConfiguration?.primaryReturnDelay == 0.1)
+        #expect(runner.lastConfiguration?.switchToVoiceDelay == 0.25)
+        #expect(runner.lastConfiguration?.switchToPrimaryDelay == 0.1)
         #expect(runner.lastConfiguration?.cooldownDuration == 7)
         #expect(runner.lastConfiguration?.typingKeyWhitelist == [.letters, .space])
     }
@@ -66,8 +66,8 @@ struct RustEngineBridgeTests {
         let ffiBridge = FFIRustEngineBridge()
         let cliBridge = CLIRustEngineBridge()
         let configuration = EngineConfiguration(
-            voiceActivationDelay: 0.05,
-            primaryReturnDelay: 0.03,
+            switchToVoiceDelay: 0.05,
+            switchToPrimaryDelay: 0.03,
             cooldownDuration: 6,
             typingKeyWhitelist: [.letters, .space]
         )

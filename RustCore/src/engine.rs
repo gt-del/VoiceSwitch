@@ -30,8 +30,8 @@ pub fn transition(
                 EngineState::VoiceMode,
             ),
             timer: optional_debounce_timer(
-                EngineTimerKind::VoiceActivationDelay,
-                configuration.voice_activation_delay,
+                EngineTimerKind::SwitchToVoiceDelay,
+                configuration.switch_to_voice_delay,
             ),
         },
         (EngineState::VoiceMode, InputBehavior::ControlPressed) => EngineTransition {
@@ -44,8 +44,8 @@ pub fn transition(
                 EngineState::IdlePrimary,
             ),
             timer: optional_debounce_timer(
-                EngineTimerKind::PrimaryReturnDelay,
-                configuration.primary_return_delay,
+                EngineTimerKind::SwitchToPrimaryDelay,
+                configuration.switch_to_primary_delay,
             ),
         },
         (_, InputBehavior::ManualSwitchDetected) => EngineTransition {

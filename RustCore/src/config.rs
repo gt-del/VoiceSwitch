@@ -4,8 +4,8 @@ use thiserror::Error;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineConfiguration {
-    pub voice_activation_delay: f64,
-    pub primary_return_delay: f64,
+    pub switch_to_voice_delay: f64,
+    pub switch_to_primary_delay: f64,
     pub cooldown_duration: f64,
     pub typing_key_whitelist: Vec<TypingKeyCategory>,
 }
@@ -13,8 +13,8 @@ pub struct EngineConfiguration {
 impl Default for EngineConfiguration {
     fn default() -> Self {
         Self {
-            voice_activation_delay: 0.0,
-            primary_return_delay: 0.0,
+            switch_to_voice_delay: 0.0,
+            switch_to_primary_delay: 0.0,
             cooldown_duration: 5.0,
             typing_key_whitelist: vec![
                 TypingKeyCategory::Letters,
@@ -30,16 +30,16 @@ impl Default for EngineConfiguration {
 impl EngineConfiguration {
     pub fn validate(&self) -> Result<(), EngineConfigurationError> {
         validate_duration(
-            self.voice_activation_delay,
+            self.switch_to_voice_delay,
             0.0,
             0.3,
-            "voiceActivationDelay",
+            "switchToVoiceDelay",
         )?;
         validate_duration(
-            self.primary_return_delay,
+            self.switch_to_primary_delay,
             0.0,
             0.3,
-            "primaryReturnDelay",
+            "switchToPrimaryDelay",
         )?;
         validate_duration(self.cooldown_duration, 0.5, 30.0, "cooldownDuration")?;
 

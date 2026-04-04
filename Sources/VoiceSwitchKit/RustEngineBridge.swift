@@ -104,8 +104,8 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
     private func ffiConfiguration(from configuration: EngineConfiguration) -> VSConfiguration {
         let whitelist = Set(configuration.typingKeyWhitelist)
         return VSConfiguration(
-            voice_activation_delay: configuration.voiceActivationDelay,
-            primary_return_delay: configuration.primaryReturnDelay,
+            voice_activation_delay: configuration.switchToVoiceDelay,
+            primary_return_delay: configuration.switchToPrimaryDelay,
             cooldown_duration: configuration.cooldownDuration,
             allow_letters: whitelist.contains(.letters),
             allow_numbers: whitelist.contains(.numbers),
@@ -187,9 +187,9 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
         let kind: EngineTimerKind
         switch timer.kind {
         case VSTimerKindVoiceActivationDelay:
-            kind = .voiceActivationDelay
+            kind = .switchToVoiceDelay
         case VSTimerKindPrimaryReturnDelay:
-            kind = .primaryReturnDelay
+            kind = .switchToPrimaryDelay
         case VSTimerKindCooldown:
             kind = .cooldown
         default:

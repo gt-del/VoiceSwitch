@@ -29,9 +29,11 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         static let voiceInputSourceID = "voiceSwitch.voiceInputSourceID"
         static let isEnabled = "voiceSwitch.isEnabled"
         static let launchAtLoginEnabled = "voiceSwitch.launchAtLoginEnabled"
-        static let voiceActivationDelay = "voiceSwitch.voiceActivationDelay"
-        static let primaryReturnDelay = "voiceSwitch.primaryReturnDelay"
+        static let switchToVoiceDelay = "voiceSwitch.switchToVoiceDelay"
+        static let switchToPrimaryDelay = "voiceSwitch.switchToPrimaryDelay"
         static let cooldownDuration = "voiceSwitch.cooldownDuration"
+        static let legacyVoiceActivationDelay = "voiceSwitch.voiceActivationDelay"
+        static let legacyPrimaryReturnDelay = "voiceSwitch.primaryReturnDelay"
     }
 
     private let userDefaults: UserDefaults
@@ -56,8 +58,16 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
                 ? defaults.isEnabled
                 : userDefaults.bool(forKey: Keys.isEnabled),
             launchAtLoginEnabled: userDefaults.bool(forKey: Keys.launchAtLoginEnabled),
-            voiceActivationDelay: loadDelay(primaryKey: Keys.voiceActivationDelay, defaultValue: defaults.voiceActivationDelay),
-            primaryReturnDelay: loadDelay(primaryKey: Keys.primaryReturnDelay, defaultValue: defaults.primaryReturnDelay),
+            switchToVoiceDelay: loadDelay(
+                primaryKey: Keys.switchToVoiceDelay,
+                legacyKey: Keys.legacyVoiceActivationDelay,
+                defaultValue: defaults.switchToVoiceDelay
+            ),
+            switchToPrimaryDelay: loadDelay(
+                primaryKey: Keys.switchToPrimaryDelay,
+                legacyKey: Keys.legacyPrimaryReturnDelay,
+                defaultValue: defaults.switchToPrimaryDelay
+            ),
             cooldownDuration: userDefaults.object(forKey: Keys.cooldownDuration) == nil
                 ? defaults.cooldownDuration
                 : userDefaults.double(forKey: Keys.cooldownDuration)
@@ -74,8 +84,8 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         userDefaults.set(settings.voiceInputSourceID, forKey: Keys.voiceInputSourceID)
         userDefaults.set(settings.isEnabled, forKey: Keys.isEnabled)
         userDefaults.set(settings.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
-        userDefaults.set(settings.voiceActivationDelay, forKey: Keys.voiceActivationDelay)
-        userDefaults.set(settings.primaryReturnDelay, forKey: Keys.primaryReturnDelay)
+        userDefaults.set(settings.switchToVoiceDelay, forKey: Keys.switchToVoiceDelay)
+        userDefaults.set(settings.switchToPrimaryDelay, forKey: Keys.switchToPrimaryDelay)
         userDefaults.set(settings.cooldownDuration, forKey: Keys.cooldownDuration)
         purgeLegacyKeys()
     }
@@ -108,7 +118,10 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
             return sanitizedDelay(userDefaults.double(forKey: primaryKey), defaultValue: defaultValue)
         }
         if let legacyKey, userDefaults.object(forKey: legacyKey) != nil {
-            return sanitizedDelay(userDefaults.double(forKey: legacyKey), defaultValue: defaultValue)
+            let migratedValue = sanitizedDelay(userDefaults.double(forKey: legacyKey), defaultValue: defaultValue)
+            userDefaults.set(migratedValue, forKey: primaryKey)
+            userDefaults.removeObject(forKey: legacyKey)
+            return migratedValue
         }
         return defaultValue
     }
@@ -140,19 +153,19 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
                 legacyKey: Keys.launchAtLoginEnabled,
                 defaultValue: defaults.launchAtLoginEnabled
             ),
-            voiceActivationDelay: firstDelay(
-                currentKey: Keys.voiceActivationDelay,
-                currentLegacyKey: Keys.voiceActivationDelay,
-                legacyKey: Keys.voiceActivationDelay,
-                legacyFallbackKey: Keys.voiceActivationDelay,
-                defaultValue: defaults.voiceActivationDelay
+            switchToVoiceDelay: firstDelay(
+                currentKey: Keys.switchToVoiceDelay,
+                currentLegacyKey: Keys.legacyVoiceActivationDelay,
+                legacyKey: Keys.switchToVoiceDelay,
+                legacyFallbackKey: Keys.legacyVoiceActivationDelay,
+                defaultValue: defaults.switchToVoiceDelay
             ),
-            primaryReturnDelay: firstDelay(
-                currentKey: Keys.primaryReturnDelay,
-                currentLegacyKey: Keys.primaryReturnDelay,
-                legacyKey: Keys.primaryReturnDelay,
-                legacyFallbackKey: Keys.primaryReturnDelay,
-                defaultValue: defaults.primaryReturnDelay
+            switchToPrimaryDelay: firstDelay(
+                currentKey: Keys.switchToPrimaryDelay,
+                currentLegacyKey: Keys.legacyPrimaryReturnDelay,
+                legacyKey: Keys.switchToPrimaryDelay,
+                legacyFallbackKey: Keys.legacyPrimaryReturnDelay,
+                defaultValue: defaults.switchToPrimaryDelay
             ),
             cooldownDuration: firstDouble(
                 currentKey: Keys.cooldownDuration,
@@ -255,6 +268,8 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
     }
 
     private func purgeLegacyKeys() {
+        userDefaults.removeObject(forKey: Keys.legacyVoiceActivationDelay)
+        userDefaults.removeObject(forKey: Keys.legacyPrimaryReturnDelay)
     }
 
     private func removeLegacyDomains() {

@@ -35,19 +35,19 @@ public enum TypingKeyCategory: String, Codable, CaseIterable, Sendable {
 }
 
 public struct EngineConfiguration: Codable, Equatable, Sendable {
-    public var voiceActivationDelay: TimeInterval
-    public var primaryReturnDelay: TimeInterval
+    public var switchToVoiceDelay: TimeInterval
+    public var switchToPrimaryDelay: TimeInterval
     public var cooldownDuration: TimeInterval
     public var typingKeyWhitelist: [TypingKeyCategory]
 
     public init(
-        voiceActivationDelay: TimeInterval = 0,
-        primaryReturnDelay: TimeInterval = 0,
+        switchToVoiceDelay: TimeInterval = 0,
+        switchToPrimaryDelay: TimeInterval = 0,
         cooldownDuration: TimeInterval = 5,
         typingKeyWhitelist: [TypingKeyCategory] = [.letters, .numbers, .space, .delete, .returnKey]
     ) {
-        self.voiceActivationDelay = voiceActivationDelay
-        self.primaryReturnDelay = primaryReturnDelay
+        self.switchToVoiceDelay = switchToVoiceDelay
+        self.switchToPrimaryDelay = switchToPrimaryDelay
         self.cooldownDuration = cooldownDuration
         self.typingKeyWhitelist = typingKeyWhitelist
     }
@@ -68,8 +68,8 @@ public struct DiagnosticEntry: Codable, Equatable, Sendable {
 }
 
 public enum EngineTimerKind: String, Codable, Equatable, Sendable {
-    case voiceActivationDelay
-    case primaryReturnDelay
+    case switchToVoiceDelay
+    case switchToPrimaryDelay
     case cooldown
 }
 

@@ -1,6 +1,6 @@
 # VoiceSwitch
 
-VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
+VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 在 `Primary IME` 和 `Voice IME` 之间做纯 toggle 切换；主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
 
 - 默认保持用户配置的 `Primary IME`
 - 第一次按下左 `Control` 切换到 `Voice IME`
@@ -82,10 +82,10 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 补充规则：
 
-- `voiceActivationDelay`、`primaryReturnDelay`、`cooldownDuration` 由 Rust core 配置驱动
-- `voiceActivationDelay` 和 `primaryReturnDelay` 只用于轻微防抖，不改变主状态机语义
+- `switchToVoiceDelay`、`switchToPrimaryDelay`、`cooldownDuration` 由 Rust core 配置驱动
+- `switchToVoiceDelay` 和 `switchToPrimaryDelay` 只用于轻微防抖，不改变主状态机语义
 - Swift 负责执行 Rust 返回的动作，并在需要时调度轻微延迟 timer
-- `controlReleased` 只保留为真实松开事件的兼容输入，不驱动主切换
+- `controlReleased` 只保留为键盘监听传入的真实兼容事件，不驱动主切换
 - typing 事件保留兼容，但不参与主切换路径
 - cooldown 期间自动切换会被抑制，并写入结构化日志
 
@@ -97,19 +97,19 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - `Voice IME`
 - `Enable VoiceSwitch`
 - `Launch at Login`
-- `切到语音输入法延迟`
-- `切回普通输入法延迟`
+- `切到 Voice IME 延迟`
+- `切到 Primary IME 延迟`
 - `Cooldown Duration`
 
 当前参数默认值与合法范围：
 
 | 参数 | 默认值 | 范围 |
 | --- | --- | --- |
-| `voiceActivationDelay` | `0.00s` | `0.0...0.3` |
-| `primaryReturnDelay` | `0.00s` | `0.0...0.3` |
+| `switchToVoiceDelay` | `0.00s` | `0.0...0.3` |
+| `switchToPrimaryDelay` | `0.00s` | `0.0...0.3` |
 | `cooldownDuration` | `5.0s` | `0.5...30.0` |
 
-设置页说明统一为：第一次按左 `Control` 切到 `Voice IME`，第二次按左 `Control` 切回 `Primary IME`。
+设置页说明统一为：按一次左 `Control` 切换输入法。
 
 ## 日志字段
 

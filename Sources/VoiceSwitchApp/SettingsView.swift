@@ -51,7 +51,7 @@ struct SettingsView: View {
         AppCard {
             Text("设置")
                 .font(.title2.weight(.semibold))
-            Text("在这里配置默认输入法、语音输入法，以及左 Control 双击切换行为。")
+            Text("在这里配置默认输入法、语音输入法，以及左 Control 切换行为。")
                 .foregroundStyle(.secondary)
         }
     }
@@ -106,35 +106,35 @@ private struct BehaviorSection: View {
 
     var body: some View {
         Section("行为") {
-            Stepper(value: voiceActivationDelayBinding, in: 0.0...0.3, step: 0.01) {
-                Text("切到语音输入法延迟：\(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
+            Stepper(value: switchToVoiceDelayBinding, in: 0.0...0.3, step: 0.01) {
+                Text("切到 Voice IME 延迟：\(model.switchToVoiceDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
-            Stepper(value: primaryReturnDelayBinding, in: 0.0...0.3, step: 0.01) {
-                Text("切回普通输入法延迟：\(model.primaryReturnDelay, format: .number.precision(.fractionLength(2)))s")
+            Stepper(value: switchToPrimaryDelayBinding, in: 0.0...0.3, step: 0.01) {
+                Text("切到 Primary IME 延迟：\(model.switchToPrimaryDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
             Stepper(value: cooldownDurationBinding, in: 0.5...30.0, step: 0.5) {
                 Text("冷却时长：\(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
             }
 
-            Text("第一次按左 Control 切到 Voice IME，第二次按左 Control 切回 Primary IME。")
+            Text("按一次左 Control 切换输入法。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var voiceActivationDelayBinding: Binding<TimeInterval> {
+    private var switchToVoiceDelayBinding: Binding<TimeInterval> {
         Binding(
-            get: { model.voiceActivationDelay },
-            set: { model.updateVoiceActivationDelay($0) }
+            get: { model.switchToVoiceDelay },
+            set: { model.updateSwitchToVoiceDelay($0) }
         )
     }
 
-    private var primaryReturnDelayBinding: Binding<TimeInterval> {
+    private var switchToPrimaryDelayBinding: Binding<TimeInterval> {
         Binding(
-            get: { model.primaryReturnDelay },
-            set: { model.updatePrimaryReturnDelay($0) }
+            get: { model.switchToPrimaryDelay },
+            set: { model.updateSwitchToPrimaryDelay($0) }
         )
     }
 

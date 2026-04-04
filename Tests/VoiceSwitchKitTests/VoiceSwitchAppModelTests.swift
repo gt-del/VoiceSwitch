@@ -12,8 +12,8 @@ struct VoiceSwitchAppModelTests {
                 voiceInputSourceID: "voice.id",
                 isEnabled: false,
                 launchAtLoginEnabled: true,
-                voiceActivationDelay: 0.25,
-                primaryReturnDelay: 0.1,
+                switchToVoiceDelay: 0.25,
+                switchToPrimaryDelay: 0.1,
                 cooldownDuration: 7,
             )
         )
@@ -40,8 +40,8 @@ struct VoiceSwitchAppModelTests {
         #expect(model.selectedVoiceInputSourceID == "voice.id")
         #expect(!model.isEnabled)
         #expect(model.launchAtLoginEnabled)
-        #expect(model.voiceActivationDelay == 0.25)
-        #expect(model.primaryReturnDelay == 0.1)
+        #expect(model.switchToVoiceDelay == 0.25)
+        #expect(model.switchToPrimaryDelay == 0.1)
         #expect(model.cooldownDuration == 7)
         #expect(model.availableInputSources.count == 2)
         #expect(model.permissionSnapshot == permissions.snapshot())
@@ -68,8 +68,8 @@ struct VoiceSwitchAppModelTests {
         model.selectedVoiceInputSourceID = "com.example.voice"
         model.isEnabled = false
         model.launchAtLoginEnabled = true
-        model.voiceActivationDelay = 0.25
-        model.primaryReturnDelay = 0.1
+        model.switchToVoiceDelay = 0.25
+        model.switchToPrimaryDelay = 0.1
         model.cooldownDuration = 7
 
         model.saveSelections()
@@ -79,8 +79,8 @@ struct VoiceSwitchAppModelTests {
             voiceInputSourceID: "com.example.voice",
             isEnabled: false,
             launchAtLoginEnabled: true,
-            voiceActivationDelay: 0.25,
-            primaryReturnDelay: 0.1,
+            switchToVoiceDelay: 0.25,
+            switchToPrimaryDelay: 0.1,
             cooldownDuration: 7,
         ))
         #expect(launchAtLoginController.lastEnabled == true)
