@@ -28,15 +28,27 @@ struct KeyboardEventTapServiceTests {
     }
 
     @Test
-    func typingKeyDownMapsToTypingDetected() {
+    func letterKeyDownMapsToTypingCategory() {
         let summary = KeyboardEventTapService.summary(
             for: .keyDown,
             keyCode: 0,
             flags: []
         )
 
-        #expect(summary == .typingKey(keyCode: 0))
-        #expect(summary?.mappedBehavior == .typingDetected)
+        #expect(summary == .typingKey(keyCode: 0, category: .letters))
+        #expect(summary?.mappedBehavior == .typingKeyLetters)
+    }
+
+    @Test
+    func spaceKeyDownMapsToTypingSpaceCategory() {
+        let summary = KeyboardEventTapService.summary(
+            for: .keyDown,
+            keyCode: 49,
+            flags: []
+        )
+
+        #expect(summary == .typingKey(keyCode: 49, category: .space))
+        #expect(summary?.mappedBehavior == .typingKeySpace)
     }
 
     @Test

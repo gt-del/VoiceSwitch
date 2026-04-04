@@ -280,6 +280,7 @@ public final class VoiceSwitchAppModel {
         appendTransitionLog(
             diagnostic: result.diagnostic,
             action: result.action,
+            timer: result.timer,
             rawDescription: rawDescription
         )
 
@@ -315,7 +316,7 @@ public final class VoiceSwitchAppModel {
                 configurationLabel: "voice"
             )
         case .enterCooldown:
-            scheduleCooldown()
+            break
         case .noOp:
             break
         }
@@ -386,8 +387,8 @@ public final class VoiceSwitchAppModel {
         return "programmatic"
     }
 
-    private func scheduleCooldown() {
-        let deadline = nowProvider().addingTimeInterval(cooldownDuration)
+    private func scheduleCooldown(delay: TimeInterval) {
+        let deadline = nowProvider().addingTimeInterval(delay)
         let wasActive = isCooldownActive
 
         isCooldownActive = true
@@ -440,25 +441,32 @@ public final class VoiceSwitchAppModel {
         event: InputBehavior,
         result: EngineTransitionResult
     ) {
-        if result.state != .optionPending {
+        if result.timer?.kind != .optionPendingWindow {
             optionPendingScheduler.cancel()
         }
-        if result.state != .voiceActive || event == .typingDetected || event == .manualSwitchDetected {
+        if result.timer?.kind != .voiceExitDelay {
             voiceExitScheduler.cancel()
         }
+        if result.timer?.kind != .cooldown {
+            cooldownScheduler.cancel()
+        }
 
-        switch (previousState, event, result.state) {
-        case (.idlePrimary, .optionPressed, .optionPending):
-            scheduleOptionPendingWindow()
-        case (.voiceActive, .optionReleased, .voiceActive):
-            scheduleVoiceExitDelay()
-        default:
-            break
+        guard let timer = result.timer else {
+            return
+        }
+
+        switch timer.kind {
+        case .optionPendingWindow:
+            scheduleOptionPendingWindow(delay: timer.delaySeconds)
+        case .voiceExitDelay:
+            scheduleVoiceExitDelay(delay: timer.delaySeconds)
+        case .cooldown:
+            scheduleCooldown(delay: timer.delaySeconds)
         }
     }
 
-    private func scheduleOptionPendingWindow() {
-        let deadline = nowProvider().addingTimeInterval(optionPendingWindow)
+    private func scheduleOptionPendingWindow(delay: TimeInterval) {
+        let deadline = nowProvider().addingTimeInterval(delay)
         optionPendingScheduler.schedule(deadline: deadline) { [weak self] in
             guard let self else {
                 return
@@ -475,11 +483,11 @@ public final class VoiceSwitchAppModel {
             }
         }
 
-        logEntries.append("trigger=optionPressed reason=option_window_started source_state=idlePrimary target_state=optionPending action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedVoiceInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
+        logEntries.append("trigger=optionPressed reason=option_window_started source_state=idlePrimary target_state=optionPending action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedVoiceInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) timer_delay_seconds=\(delay) deadline=\(deadline.timeIntervalSince1970)")
     }
 
-    private func scheduleVoiceExitDelay() {
-        let deadline = nowProvider().addingTimeInterval(voiceExitDelay)
+    private func scheduleVoiceExitDelay(delay: TimeInterval) {
+        let deadline = nowProvider().addingTimeInterval(delay)
         voiceExitScheduler.schedule(deadline: deadline) { [weak self] in
             guard let self else {
                 return
@@ -496,7 +504,7 @@ public final class VoiceSwitchAppModel {
             }
         }
 
-        logEntries.append("trigger=optionReleased reason=voice_exit_delay_started source_state=voiceActive target_state=voiceActive action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedPrimaryInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
+        logEntries.append("trigger=optionReleased reason=voice_exit_delay_started source_state=voiceActive target_state=voiceActive action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedPrimaryInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) timer_delay_seconds=\(delay) deadline=\(deadline.timeIntervalSince1970)")
     }
 
     private func handleOptionPendingWindowExpired() {
@@ -518,9 +526,13 @@ public final class VoiceSwitchAppModel {
     private func appendTransitionLog(
         diagnostic: DiagnosticEntry,
         action: EngineAction,
+        timer: EngineTimer?,
         rawDescription: String?
     ) {
         var entry = "trigger=\(diagnostic.trigger) reason=\(diagnostic.reason) source_state=\(diagnostic.sourceState.rawValue) target_state=\(diagnostic.targetState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: action) ?? "none") cooldown_status=\(cooldownStatusLabel)"
+        if let timer {
+            entry += " timer_kind=\(timer.kind.rawValue) timer_delay_seconds=\(timer.delaySeconds)"
+        }
         if let rawDescription {
             entry += " raw_event=\(rawDescription)"
         }

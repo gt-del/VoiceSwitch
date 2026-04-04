@@ -12,6 +12,11 @@ public enum InputBehavior: String, Codable, CaseIterable, Sendable {
     case optionReleased
     case optionWindowExpired
     case typingDetected
+    case typingKeyLetters
+    case typingKeyNumbers
+    case typingKeySpace
+    case typingKeyDelete
+    case typingKeyReturnKey
     case manualSwitchDetected
     case cooldownExpired
     case voiceExitDelayElapsed
@@ -65,14 +70,37 @@ public struct DiagnosticEntry: Codable, Equatable, Sendable {
     }
 }
 
+public enum EngineTimerKind: String, Codable, Equatable, Sendable {
+    case optionPendingWindow
+    case voiceExitDelay
+    case cooldown
+}
+
+public struct EngineTimer: Codable, Equatable, Sendable {
+    public let kind: EngineTimerKind
+    public let delaySeconds: TimeInterval
+
+    public init(kind: EngineTimerKind, delaySeconds: TimeInterval) {
+        self.kind = kind
+        self.delaySeconds = delaySeconds
+    }
+}
+
 public struct EngineTransitionResult: Codable, Equatable, Sendable {
     public let state: EngineState
     public let action: EngineAction
     public let diagnostic: DiagnosticEntry
+    public let timer: EngineTimer?
 
-    public init(state: EngineState, action: EngineAction, diagnostic: DiagnosticEntry) {
+    public init(
+        state: EngineState,
+        action: EngineAction,
+        diagnostic: DiagnosticEntry,
+        timer: EngineTimer? = nil
+    ) {
         self.state = state
         self.action = action
         self.diagnostic = diagnostic
+        self.timer = timer
     }
 }

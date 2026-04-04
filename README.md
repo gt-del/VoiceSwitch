@@ -169,6 +169,7 @@ VoiceSwitch 是一个运行于 macOS 的菜单栏常驻工具，用于根据用�
    - 系统事件由 Infrastructure 转换为领域事件。
 2. **单向数据流**
    - 系统事件 → 领域事件 → 状态机 → 动作决策 → 执行动作 → UI 刷新/日志。
+   - 时间窗调度由 Rust 状态机输出 timer 决策，Swift 只负责执行。
 3. **主线程最小化**
    - 键盘事件监听和规则判断在专用队列处理。
    - UI 仅订阅状态快照。
@@ -440,6 +441,11 @@ error
 - `voiceCandidate`
 - `optionPressed`
 - `optionReleased`
+
+一期最小实现中：
+
+- 平台层先把原始键盘事件映射为稳定键类别，例如 `letters`、`numbers`、`space`、`delete`、`returnKey`
+- Rust core 再按 `typingKeyWhitelist` 决定这些键类别是否构成 typing 行为
 
 ## 6.3 按键分类表
 

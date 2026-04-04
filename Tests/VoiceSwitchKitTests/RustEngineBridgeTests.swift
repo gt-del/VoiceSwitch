@@ -7,7 +7,7 @@ struct RustEngineBridgeTests {
     func bridgeDecodesTransitionResult() throws {
         let runner = StubRustCommandRunner(
             output: """
-            {"state":"optionPending","action":"noOp","diagnostic":{"trigger":"optionPressed","reason":"entered_option_pending","sourceState":"idlePrimary","targetState":"optionPending"}}
+            {"state":"optionPending","action":"noOp","diagnostic":{"trigger":"optionPressed","reason":"entered_option_pending","sourceState":"idlePrimary","targetState":"optionPending"},"timer":{"kind":"optionPendingWindow","delaySeconds":0.25}}
             """.data(using: .utf8)!
         )
 
@@ -24,6 +24,8 @@ struct RustEngineBridgeTests {
         #expect(result.diagnostic.reason == "entered_option_pending")
         #expect(result.diagnostic.sourceState == .idlePrimary)
         #expect(result.diagnostic.targetState == .optionPending)
+        #expect(result.timer?.kind == .optionPendingWindow)
+        #expect(result.timer?.delaySeconds == 0.25)
     }
 
     @Test

@@ -235,7 +235,8 @@ private struct RuleBasedCooldownEngineBridge: EngineBridging {
                     reason: "entered_cooldown_after_manual_switch",
                     sourceState: currentState,
                     targetState: .cooldown
-                )
+                ),
+                timer: EngineTimer(kind: .cooldown, delaySeconds: configuration.cooldownDuration)
             )
         case (.cooldown, .cooldownExpired):
             return EngineTransitionResult(

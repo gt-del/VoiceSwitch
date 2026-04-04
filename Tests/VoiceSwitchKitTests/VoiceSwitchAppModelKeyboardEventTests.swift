@@ -37,7 +37,8 @@ struct VoiceSwitchAppModelKeyboardEventTests {
                         reason: "entered_option_pending",
                         sourceState: .idlePrimary,
                         targetState: .optionPending
-                    )
+                    ),
+                    timer: EngineTimer(kind: .optionPendingWindow, delaySeconds: 0.42)
                 )
             ),
             keyboardEventService: service
@@ -55,6 +56,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         #expect(model.logEntries.contains { $0.contains("trigger=optionPressed") })
         #expect(model.logEntries.contains { $0.contains("target_state=optionPending") })
         #expect(model.logEntries.contains { $0.contains("reason=entered_option_pending") })
+        #expect(model.logEntries.contains { $0.contains("timer_delay_seconds=0.42") })
     }
 
     @Test

@@ -4,7 +4,7 @@ import Foundation
 public enum KeyboardEventSummary: Equatable, Sendable {
     case optionPressed(keyCode: Int)
     case optionReleased(keyCode: Int)
-    case typingKey(keyCode: Int)
+    case typingKey(keyCode: Int, category: TypingKeyCategory)
     case tapDisabled(reason: String)
     case tapRecoveryAttempted(reason: String)
     case listenerInactive(reason: String)
@@ -15,8 +15,19 @@ public enum KeyboardEventSummary: Equatable, Sendable {
             return .optionPressed
         case .optionReleased:
             return .optionReleased
-        case .typingKey:
-            return .typingDetected
+        case let .typingKey(_, category):
+            switch category {
+            case .letters:
+                return .typingKeyLetters
+            case .numbers:
+                return .typingKeyNumbers
+            case .space:
+                return .typingKeySpace
+            case .delete:
+                return .typingKeyDelete
+            case .returnKey:
+                return .typingKeyReturnKey
+            }
         case .tapDisabled, .tapRecoveryAttempted, .listenerInactive:
             return nil
         }
@@ -28,8 +39,8 @@ public enum KeyboardEventSummary: Equatable, Sendable {
             return "optionDown(keyCode:\(keyCode))"
         case let .optionReleased(keyCode):
             return "optionUp(keyCode:\(keyCode))"
-        case let .typingKey(keyCode):
-            return "typingKey(keyCode:\(keyCode))"
+        case let .typingKey(keyCode, category):
+            return "typingKey(keyCode:\(keyCode),category:\(category.rawValue))"
         case let .tapDisabled(reason):
             return "tapDisabled(reason:\(reason))"
         case let .tapRecoveryAttempted(reason):
@@ -160,10 +171,10 @@ public final class KeyboardEventTapService: KeyboardEventListening {
                 ? .optionPressed(keyCode: Int(keyCode))
                 : .optionReleased(keyCode: Int(keyCode))
         case .keyDown:
-            guard isTypingKey(keyCode) else {
+            guard let category = typingKeyCategory(for: keyCode) else {
                 return nil
             }
-            return .typingKey(keyCode: Int(keyCode))
+            return .typingKey(keyCode: Int(keyCode), category: category)
         case .tapDisabledByTimeout:
             return .tapDisabled(reason: "timeout")
         case .tapDisabledByUserInput:
@@ -177,15 +188,33 @@ public final class KeyboardEventTapService: KeyboardEventListening {
         keyCode == 58 || keyCode == 61
     }
 
-    static func isTypingKey(_ keyCode: CGKeyCode) -> Bool {
-        typingKeyCodes.contains(Int(keyCode))
+    static func typingKeyCategory(for keyCode: CGKeyCode) -> TypingKeyCategory? {
+        let keyCode = Int(keyCode)
+        if letterKeyCodes.contains(keyCode) {
+            return .letters
+        }
+        if numberKeyCodes.contains(keyCode) {
+            return .numbers
+        }
+        switch keyCode {
+        case 49:
+            return .space
+        case 51:
+            return .delete
+        case 36:
+            return .returnKey
+        default:
+            return nil
+        }
     }
 
-    private static let typingKeyCodes: Set<Int> = [
-        0, 1, 2, 3, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17,
-        18, 19, 20, 21, 22, 23, 25, 26, 28, 29,
+    private static let letterKeyCodes: Set<Int> = [
+        0, 1, 2, 3, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 17,
         31, 32, 34, 35, 37, 38, 40, 41, 45, 46,
-        49, 36, 51,
+    ]
+
+    private static let numberKeyCodes: Set<Int> = [
+        18, 19, 20, 21, 22, 23, 25, 26, 28, 29,
     ]
 
     private func emit(_ summary: KeyboardEventSummary) {

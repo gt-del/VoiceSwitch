@@ -23,9 +23,15 @@
 ## Proposed Change
 
 - 在 Rust core 新增参数结构 `EngineConfiguration`
+- 在 Rust core 新增 timer 决策输出，时间窗长度由 Rust 根据配置给出，Swift 只负责调度
 - 在状态机中新增事件：
   - `optionWindowExpired`
   - `voiceExitDelayElapsed`
+  - `typingKeyLetters`
+  - `typingKeyNumbers`
+  - `typingKeySpace`
+  - `typingKeyDelete`
+  - `typingKeyReturnKey`
 - 将最小闭环调整为：
   - `idlePrimary + optionPressed -> optionPending`
   - `optionPending + optionWindowExpired -> voiceActive`
@@ -41,6 +47,7 @@
   - `reason`
   - `sourceState`
   - `targetState`
+- `typingKeyWhitelist` 在 Rust 中决定 typing key 类别是否真正形成 typing 语义
 
 ## Affected Semantics
 
@@ -49,10 +56,12 @@
 - Events:
   - 新增 `optionWindowExpired`
   - 新增 `voiceExitDelayElapsed`
+  - 新增 typing key category 事件
 - Transitions:
   - `optionReleased` 不再直接激活 `voiceActive`
   - `optionWindowExpired` 成为进入 `voiceActive` 的触发条件
   - `voiceExitDelayElapsed` 成为 `voiceActive` 的延迟退出触发条件
+  - typing key 是否触发回切由 `typingKeyWhitelist` 决定
 - Scores / Thresholds:
   - 仍不引入复杂评分，仅参数化时间窗
 - Cooldown:
