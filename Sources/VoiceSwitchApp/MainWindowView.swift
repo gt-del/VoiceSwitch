@@ -49,6 +49,9 @@ struct MainWindowView: View {
         HStack(spacing: 12) {
             Label(model.statusSummary, systemImage: bannerIconName)
                 .font(.headline)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(bannerColor.opacity(0.18), in: Capsule())
 
             Text(bannerMessage)
                 .foregroundStyle(bannerColor)
@@ -62,12 +65,12 @@ struct MainWindowView: View {
 
     private var bannerMessage: String {
         if !model.isEnabled {
-            return "VoiceSwitch 已禁用，不会监听 Option 键，也不会自动切换输入法。"
+            return "VoiceSwitch 当前已禁用，不会监听 Option 键，也不会自动切换输入法。"
         }
         if let blockingIssue = model.blockingIssue {
             return blockingIssue
         }
-        return "当前配置可运行。最小化窗口后仍可通过菜单栏快速查看状态和重新打开。"
+        return "当前配置可运行。关闭主窗口后应用仍会常驻，你可以从 Dock 或菜单栏重新打开。"
     }
 
     private var bannerColor: Color {
@@ -100,6 +103,10 @@ private struct DashboardSection: View {
         VStack(alignment: .leading, spacing: 20) {
             Text("VoiceSwitch")
                 .font(.largeTitle.weight(.semibold))
+
+            Text(dashboardSummary)
+                .font(.title3)
+                .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
                 summaryCard(title: "Status", value: model.statusSummary)
@@ -134,6 +141,16 @@ private struct DashboardSection: View {
             return "Disabled"
         }
         return model.eventTapStatus == .running ? "Running" : "Stopped"
+    }
+
+    private var dashboardSummary: String {
+        if !model.isEnabled {
+            return "应用保持常驻，但自动切换暂停。重新启用后才会接管 Option 键。"
+        }
+        if let blockingIssue = model.blockingIssue {
+            return "当前不可用：\(blockingIssue)"
+        }
+        return "默认保持 Primary IME，按住 Option 切到 Voice IME，松开后恢复。"
     }
 
     @ViewBuilder
@@ -184,7 +201,7 @@ private struct DashboardSection: View {
     private var issuePanel: some View {
         if let issue = model.blockingIssue {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Blocking Issue")
+                Label("Blocking Issue", systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                 Text(issue)
             }
@@ -193,7 +210,7 @@ private struct DashboardSection: View {
             .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
         } else if !model.configurationIssues.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Configuration Issues")
+                Label("Configuration Issues", systemImage: "slider.horizontal.3")
                     .font(.headline)
                 ForEach(model.configurationIssues, id: \.self) { issue in
                     Text(issue)

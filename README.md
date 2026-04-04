@@ -26,6 +26,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 - 启动应用后直接显示主窗口，可在窗口内完成主要配置
 - 关闭主窗口后应用不会退出，会继续保留 Dock 与菜单栏入口常驻运行
+- 主窗口关闭后，可通过点击 Dock 图标或菜单栏 `Open VoiceSwitch` 重新打开
 - `Dashboard` 展示当前状态、权限、监听状态、当前 IME 和最近动作
 - `Settings` 负责 Input Sources、Behavior、Permissions & System 配置
 - `Logs` 展示最近日志、原始事件与调试按钮

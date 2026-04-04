@@ -37,9 +37,9 @@ struct SettingsView: View {
 
     private var statusMessage: String {
         if !model.isEnabled {
-            return "VoiceSwitch 已禁用。启用后才会接管 Option 键并自动切换输入法。"
+            return "VoiceSwitch 当前已禁用。启用后才会接管 Option 键并自动切换输入法。"
         }
-        return model.blockingIssue ?? "Configuration is valid."
+        return model.blockingIssue ?? "当前配置可运行。"
     }
 }
 
