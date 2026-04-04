@@ -10,9 +10,11 @@ public enum EngineState: String, Codable, CaseIterable, Sendable {
 public enum InputBehavior: String, Codable, CaseIterable, Sendable {
     case optionPressed
     case optionReleased
+    case optionWindowExpired
     case typingDetected
     case manualSwitchDetected
     case cooldownExpired
+    case voiceExitDelayElapsed
 }
 
 public enum EngineAction: String, Codable, CaseIterable, Sendable {
@@ -22,11 +24,44 @@ public enum EngineAction: String, Codable, CaseIterable, Sendable {
     case noOp
 }
 
-public struct DiagnosticEntry: Codable, Equatable, Sendable {
-    public let message: String
+public enum TypingKeyCategory: String, Codable, CaseIterable, Sendable {
+    case letters
+    case numbers
+    case space
+    case delete
+    case returnKey
+}
 
-    public init(message: String) {
-        self.message = message
+public struct EngineConfiguration: Codable, Equatable, Sendable {
+    public var optionPendingWindow: TimeInterval
+    public var cooldownDuration: TimeInterval
+    public var voiceExitDelay: TimeInterval
+    public var typingKeyWhitelist: [TypingKeyCategory]
+
+    public init(
+        optionPendingWindow: TimeInterval = 0.18,
+        cooldownDuration: TimeInterval = 5,
+        voiceExitDelay: TimeInterval = 0.8,
+        typingKeyWhitelist: [TypingKeyCategory] = [.letters, .numbers, .space, .delete, .returnKey]
+    ) {
+        self.optionPendingWindow = optionPendingWindow
+        self.cooldownDuration = cooldownDuration
+        self.voiceExitDelay = voiceExitDelay
+        self.typingKeyWhitelist = typingKeyWhitelist
+    }
+}
+
+public struct DiagnosticEntry: Codable, Equatable, Sendable {
+    public let trigger: String
+    public let reason: String
+    public let sourceState: EngineState
+    public let targetState: EngineState
+
+    public init(trigger: String, reason: String, sourceState: EngineState, targetState: EngineState) {
+        self.trigger = trigger
+        self.reason = reason
+        self.sourceState = sourceState
+        self.targetState = targetState
     }
 }
 

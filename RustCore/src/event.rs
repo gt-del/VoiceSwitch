@@ -6,9 +6,11 @@ use std::str::FromStr;
 pub enum InputBehavior {
     OptionPressed,
     OptionReleased,
+    OptionWindowExpired,
     TypingDetected,
     ManualSwitchDetected,
     CooldownExpired,
+    VoiceExitDelayElapsed,
 }
 
 impl InputBehavior {
@@ -16,9 +18,11 @@ impl InputBehavior {
         match self {
             Self::OptionPressed => "optionPressed",
             Self::OptionReleased => "optionReleased",
+            Self::OptionWindowExpired => "optionWindowExpired",
             Self::TypingDetected => "typingDetected",
             Self::ManualSwitchDetected => "manualSwitchDetected",
             Self::CooldownExpired => "cooldownExpired",
+            Self::VoiceExitDelayElapsed => "voiceExitDelayElapsed",
         }
     }
 }
@@ -30,9 +34,11 @@ impl FromStr for InputBehavior {
         match value {
             "optionPressed" => Ok(Self::OptionPressed),
             "optionReleased" => Ok(Self::OptionReleased),
+            "optionWindowExpired" => Ok(Self::OptionWindowExpired),
             "typingDetected" => Ok(Self::TypingDetected),
             "manualSwitchDetected" => Ok(Self::ManualSwitchDetected),
             "cooldownExpired" => Ok(Self::CooldownExpired),
+            "voiceExitDelayElapsed" => Ok(Self::VoiceExitDelayElapsed),
             _ => Err(format!("unknown input behavior: {value}")),
         }
     }

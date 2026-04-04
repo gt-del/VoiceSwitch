@@ -1,11 +1,15 @@
 import Foundation
 
 public protocol EngineBridging: Sendable {
-    func transition(from currentState: EngineState, event: InputBehavior) throws -> EngineTransitionResult
+    func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult
 }
 
 protocol RustCommandRunning: Sendable {
-    func run(state: EngineState, event: InputBehavior) throws -> Data
+    func run(state: EngineState, event: InputBehavior, configuration: EngineConfiguration) throws -> Data
 }
 
 public struct RustEngineBridge: EngineBridging, Sendable {
@@ -19,8 +23,12 @@ public struct RustEngineBridge: EngineBridging, Sendable {
         self.commandRunner = commandRunner
     }
 
-    public func transition(from currentState: EngineState, event: InputBehavior) throws -> EngineTransitionResult {
-        let output = try commandRunner.run(state: currentState, event: event)
+    public func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult {
+        let output = try commandRunner.run(state: currentState, event: event, configuration: configuration)
 
         do {
             return try JSONDecoder().decode(EngineTransitionResult.self, from: output)
@@ -37,10 +45,12 @@ struct ProcessRustCommandRunner: RustCommandRunning {
         self.cargoManifestPath = cargoManifestPath
     }
 
-    func run(state: EngineState, event: InputBehavior) throws -> Data {
+    func run(state: EngineState, event: InputBehavior, configuration: EngineConfiguration) throws -> Data {
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
+        let configurationPayload = try JSONEncoder().encode(configuration)
+        let configurationArgument = String(decoding: configurationPayload, as: UTF8.self)
 
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = [
@@ -54,6 +64,7 @@ struct ProcessRustCommandRunner: RustCommandRunning {
             "--",
             state.rawValue,
             event.rawValue,
+            configurationArgument,
         ]
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
@@ -95,6 +106,7 @@ struct ProcessRustCommandRunner: RustCommandRunning {
 }
 
 enum RustEngineBridgeError: Error {
+    case configurationEncodeFailed(Error)
     case processLaunchFailed(Error)
     case commandFailed(status: Int32, stderr: String)
     case invalidOutput(Error, String)

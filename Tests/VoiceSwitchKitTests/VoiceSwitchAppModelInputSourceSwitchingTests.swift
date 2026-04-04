@@ -26,7 +26,12 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 result: EngineTransitionResult(
                     state: .voiceActive,
                     action: .switchToVoice,
-                    diagnostic: DiagnosticEntry(message: "Activated voiceActive")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionWindowExpired",
+                        reason: "activated_voice_after_option_window",
+                        sourceState: .optionPending,
+                        targetState: .voiceActive
+                    )
                 )
             )
         )
@@ -35,9 +40,9 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.sendTestEvent(.optionReleased)
 
         #expect(switchingService.switchCalls == ["com.example.voice"])
-        #expect(model.logEntries.contains { $0.contains("currentInputSource=com.apple.keylayout.ABC") })
-        #expect(model.logEntries.contains { $0.contains("targetInputSource=com.example.voice") })
-        #expect(model.logEntries.contains { $0.contains("switchResult=success") })
+        #expect(model.logEntries.contains { $0.contains("current_input_source=com.apple.keylayout.ABC") })
+        #expect(model.logEntries.contains { $0.contains("target_input_source=com.example.voice") })
+        #expect(model.logEntries.contains { $0.contains("switch_result=success") })
     }
 
     @Test
@@ -62,7 +67,12 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 result: EngineTransitionResult(
                     state: .idlePrimary,
                     action: .switchToPrimary,
-                    diagnostic: DiagnosticEntry(message: "Returned to idlePrimary after typing")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "typingDetected",
+                        reason: "returned_to_idle_primary_after_typing",
+                        sourceState: .voiceActive,
+                        targetState: .idlePrimary
+                    )
                 )
             )
         )
@@ -71,8 +81,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.sendTestEvent(.typingDetected)
 
         #expect(switchingService.switchCalls == ["com.apple.keylayout.ABC"])
-        #expect(model.logEntries.contains { $0.contains("targetInputSource=com.apple.keylayout.ABC") })
-        #expect(model.logEntries.contains { $0.contains("switchResult=success") })
+        #expect(model.logEntries.contains { $0.contains("target_input_source=com.apple.keylayout.ABC") })
+        #expect(model.logEntries.contains { $0.contains("switch_result=success") })
     }
 
     @Test
@@ -96,7 +106,12 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 result: EngineTransitionResult(
                     state: .voiceActive,
                     action: .switchToVoice,
-                    diagnostic: DiagnosticEntry(message: "Activated voiceActive")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionWindowExpired",
+                        reason: "activated_voice_after_option_window",
+                        sourceState: .optionPending,
+                        targetState: .voiceActive
+                    )
                 )
             )
         )
@@ -105,8 +120,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.sendTestEvent(.optionReleased)
 
         #expect(switchingService.switchCalls.isEmpty)
-        #expect(model.logEntries.contains { $0.contains("switchResult=skipped") })
-        #expect(model.logEntries.contains { $0.contains("reason=voice input source is not configured") })
+        #expect(model.logEntries.contains { $0.contains("switch_result=skipped") })
+        #expect(model.logEntries.contains { $0.contains("reason=voice_input_source_not_configured") })
     }
 
     @Test
@@ -131,7 +146,12 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 result: EngineTransitionResult(
                     state: .voiceActive,
                     action: .switchToVoice,
-                    diagnostic: DiagnosticEntry(message: "Activated voiceActive")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionWindowExpired",
+                        reason: "activated_voice_after_option_window",
+                        sourceState: .optionPending,
+                        targetState: .voiceActive
+                    )
                 )
             )
         )
@@ -140,8 +160,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.sendTestEvent(.optionReleased)
 
         #expect(switchingService.switchCalls.isEmpty)
-        #expect(model.logEntries.contains { $0.contains("switchResult=skipped") })
-        #expect(model.logEntries.contains { $0.contains("reason=target already selected") })
+        #expect(model.logEntries.contains { $0.contains("switch_result=skipped") })
+        #expect(model.logEntries.contains { $0.contains("reason=target_already_selected") })
     }
 
     @Test
@@ -167,7 +187,12 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 result: EngineTransitionResult(
                     state: .voiceActive,
                     action: .switchToVoice,
-                    diagnostic: DiagnosticEntry(message: "Activated voiceActive")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionWindowExpired",
+                        reason: "activated_voice_after_option_window",
+                        sourceState: .optionPending,
+                        targetState: .voiceActive
+                    )
                 )
             )
         )
@@ -175,7 +200,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.load()
         try model.sendTestEvent(.optionReleased)
 
-        #expect(model.logEntries.contains { $0.contains("switchResult=failed") })
+        #expect(model.logEntries.contains { $0.contains("switch_result=failed") })
         #expect(model.logEntries.contains { $0.contains("Failed to select input source com.example.voice. OSStatus=-50") })
     }
 }
@@ -183,7 +208,11 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
 private struct StubActionEngineBridge: EngineBridging {
     let result: EngineTransitionResult
 
-    func transition(from currentState: EngineState, event: InputBehavior) throws -> EngineTransitionResult {
+    func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult {
         result
     }
 }

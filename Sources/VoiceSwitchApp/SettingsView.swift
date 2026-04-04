@@ -32,10 +32,43 @@ struct SettingsView: View {
             Section("Permissions") {
                 Text("Accessibility: \(model.permissionSnapshot.accessibility.rawValue)")
                 Text("Input Monitoring: \(model.permissionSnapshot.inputMonitoring.rawValue)")
+                Text("Event Tap: \(model.eventTapStatus.rawValue)")
+
+                if let errorMessage = model.keyboardMonitoringErrorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.orange)
+                }
+
+                Button("Retry Keyboard Monitoring") {
+                    model.retryKeyboardMonitoring()
+                }
             }
 
             Section("Startup") {
                 Toggle("Launch at Login", isOn: $model.launchAtLoginEnabled)
+
+                if let errorMessage = model.launchAtLoginErrorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            Section("Engine Parameters") {
+                Stepper(value: $model.optionPendingWindow, in: 0.05...1.0, step: 0.05) {
+                    Text("Option Pending Window: \(model.optionPendingWindow, format: .number.precision(.fractionLength(2)))s")
+                }
+
+                Stepper(value: $model.cooldownDuration, in: 0.5...30.0, step: 0.5) {
+                    Text("Cooldown Duration: \(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
+                }
+
+                Stepper(value: $model.voiceExitDelay, in: 0.0...5.0, step: 0.1) {
+                    Text("Voice Exit Delay: \(model.voiceExitDelay, format: .number.precision(.fractionLength(1)))s")
+                }
+
+                Text("Changes affect new events immediately. Save persists them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Button("Save") {

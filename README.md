@@ -174,6 +174,7 @@ VoiceSwitch 是一个运行于 macOS 的菜单栏常驻工具，用于根据用�
    - UI 仅订阅状态快照。
 4. **所有自动切换可解释**
    - 每一次切换必须有 trigger、reason、source state、target state。
+   - Rust core 负责产出业务语义字段，Swift 执行层只补充 current input source、target input source、cooldown status。
 
 ------
 
@@ -326,6 +327,7 @@ error
 默认等待窗口：
 
 - 150ms ~ 250ms，默认建议 180ms
+- 一期设置页先开放 `0.05s ~ 1.0s`
 
 在该窗口内：
 
@@ -348,6 +350,11 @@ error
 
 - 检测到 typingConfirmed
 - optionReleased 后，达到 voiceExitDelay 且未再观察到 voice 相关行为
+
+建议默认值：
+
+- `voiceExitDelay = 800ms`
+- 一期设置页先开放 `0.0s ~ 5.0s`
 
 ### 5.2.4 typingActive
 
@@ -384,6 +391,34 @@ error
 建议默认值：
 
 - `cooldownDuration = 5s`
+- 一期设置页先开放 `0.5s ~ 30.0s`
+
+## 5.2.6 一期可调参数
+
+一期先开放以下可调参数，不引入复杂评分模型：
+
+- `optionPendingWindow`
+- `cooldownDuration`
+- `voiceExitDelay`
+
+要求：
+
+- 参数定义在 Rust core，Swift 只负责传递和持久化配置。
+- 设置页改动后对新事件立即生效，点击 Save 后持久化。
+- 参数必须有默认值与合法范围校验。
+
+## 5.2.7 一期日志字段
+
+一期日志至少稳定输出以下字段：
+
+- `trigger`
+- `reason`
+- `source_state`
+- `target_state`
+- `action`
+- `current_input_source`
+- `target_input_source`
+- `cooldown_status`
 
 ------
 

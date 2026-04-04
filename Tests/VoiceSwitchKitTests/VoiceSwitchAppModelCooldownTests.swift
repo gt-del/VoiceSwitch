@@ -41,7 +41,7 @@ struct VoiceSwitchAppModelCooldownTests {
         #expect(model.cooldownDeadline == Date(timeIntervalSince1970: 1_005))
         #expect(scheduler.scheduleCallCount == 1)
         #expect(model.logEntries.contains { $0.contains("origin=manual") })
-        #expect(model.logEntries.contains { $0.contains("cooldownStarted") })
+        #expect(model.logEntries.contains { $0.contains("reason=cooldown_started") })
     }
 
     @Test
@@ -72,10 +72,11 @@ struct VoiceSwitchAppModelCooldownTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.optionWindowExpired)
         observationService.emit(.changed(inputSourceID: "com.example.voice", rawDescription: "inputSourceChanged(id:com.example.voice)"))
 
-        #expect(model.lastInputBehavior == .optionReleased)
+        #expect(model.lastInputBehavior == .optionWindowExpired)
         #expect(model.currentEngineState == .voiceActive)
         #expect(!model.isCooldownActive)
         #expect(scheduler.scheduleCallCount == 0)
@@ -150,11 +151,11 @@ struct VoiceSwitchAppModelCooldownTests {
 
         try model.load()
         observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.optionWindowExpired)
 
         #expect(switchingService.switchCalls.isEmpty)
         #expect(model.currentEngineState == .cooldown)
-        #expect(model.logEntries.contains { $0.contains("cooldownSkipped") })
+        #expect(model.logEntries.contains { $0.contains("reason=cooldown_skipped_automatic_switch") })
     }
 
     @Test
@@ -192,42 +193,82 @@ struct VoiceSwitchAppModelCooldownTests {
         #expect(model.isCooldownActive)
         #expect(model.cooldownDeadline == Date(timeIntervalSince1970: 5_007))
         #expect(scheduler.scheduleCallCount == 2)
-        #expect(model.logEntries.contains { $0.contains("cooldownReset") })
+        #expect(model.logEntries.contains { $0.contains("reason=cooldown_reset") })
     }
 }
 
 private struct RuleBasedCooldownEngineBridge: EngineBridging {
-    func transition(from currentState: EngineState, event: InputBehavior) throws -> EngineTransitionResult {
+    func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult {
         switch (currentState, event) {
-        case (.idlePrimary, .optionReleased):
+        case (.idlePrimary, .optionPressed):
+            return EngineTransitionResult(
+                state: .optionPending,
+                action: .noOp,
+                diagnostic: DiagnosticEntry(
+                    trigger: "optionPressed",
+                    reason: "entered_option_pending",
+                    sourceState: .idlePrimary,
+                    targetState: .optionPending
+                )
+            )
+        case (.optionPending, .optionWindowExpired):
             return EngineTransitionResult(
                 state: .voiceActive,
                 action: .switchToVoice,
-                diagnostic: DiagnosticEntry(message: "Activated voiceActive")
+                diagnostic: DiagnosticEntry(
+                    trigger: "optionWindowExpired",
+                    reason: "activated_voice_after_option_window",
+                    sourceState: .optionPending,
+                    targetState: .voiceActive
+                )
             )
         case (_, .manualSwitchDetected):
             return EngineTransitionResult(
                 state: .cooldown,
                 action: .enterCooldown,
-                diagnostic: DiagnosticEntry(message: "Entered cooldown after manual switch")
+                diagnostic: DiagnosticEntry(
+                    trigger: "manualSwitchDetected",
+                    reason: "entered_cooldown_after_manual_switch",
+                    sourceState: currentState,
+                    targetState: .cooldown
+                )
             )
         case (.cooldown, .cooldownExpired):
             return EngineTransitionResult(
                 state: .idlePrimary,
                 action: .noOp,
-                diagnostic: DiagnosticEntry(message: "Cooldown expired; returned to idlePrimary")
+                diagnostic: DiagnosticEntry(
+                    trigger: "cooldownExpired",
+                    reason: "cooldown_expired",
+                    sourceState: .cooldown,
+                    targetState: .idlePrimary
+                )
             )
         case (.cooldown, _):
             return EngineTransitionResult(
                 state: .cooldown,
                 action: .noOp,
-                diagnostic: DiagnosticEntry(message: "Ignored event while in cooldown")
+                diagnostic: DiagnosticEntry(
+                    trigger: event.rawValue,
+                    reason: "ignored_event_in_current_state",
+                    sourceState: .cooldown,
+                    targetState: .cooldown
+                )
             )
         default:
             return EngineTransitionResult(
                 state: currentState,
                 action: .noOp,
-                diagnostic: DiagnosticEntry(message: "No state change")
+                diagnostic: DiagnosticEntry(
+                    trigger: event.rawValue,
+                    reason: "no_state_change",
+                    sourceState: currentState,
+                    targetState: currentState
+                )
             )
         }
     }

@@ -10,7 +10,10 @@ struct VoiceSwitchAppModelTests {
             initial: VoiceSwitchSettings(
                 primaryInputSourceID: "primary.id",
                 voiceInputSourceID: "voice.id",
-                launchAtLoginEnabled: true
+                launchAtLoginEnabled: true,
+                optionPendingWindow: 0.25,
+                cooldownDuration: 7,
+                voiceExitDelay: 1.2
             )
         )
         let provider = StubInputSourceProvider(
@@ -22,10 +25,12 @@ struct VoiceSwitchAppModelTests {
         let permissions = StubPermissionProvider(
             current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)
         )
+        let launchAtLoginController = StubLaunchAtLoginController(isEnabled: true)
         let model = VoiceSwitchAppModel(
             settingsStore: store,
             inputSourceProvider: provider,
-            permissionProvider: permissions
+            permissionProvider: permissions,
+            launchAtLoginController: launchAtLoginController
         )
 
         try model.load()
@@ -33,6 +38,9 @@ struct VoiceSwitchAppModelTests {
         #expect(model.selectedPrimaryInputSourceID == "primary.id")
         #expect(model.selectedVoiceInputSourceID == "voice.id")
         #expect(model.launchAtLoginEnabled)
+        #expect(model.optionPendingWindow == 0.25)
+        #expect(model.cooldownDuration == 7)
+        #expect(model.voiceExitDelay == 1.2)
         #expect(model.availableInputSources.count == 2)
         #expect(model.permissionSnapshot == permissions.snapshot())
     }
@@ -40,19 +48,54 @@ struct VoiceSwitchAppModelTests {
     @Test
     func saveSelectionsPersistsCurrentValues() {
         let store = InMemorySettingsStore(initial: VoiceSwitchSettings())
+        let launchAtLoginController = StubLaunchAtLoginController(isEnabled: false)
         let model = VoiceSwitchAppModel(
             settingsStore: store,
             inputSourceProvider: StubInputSourceProvider(sources: []),
-            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown))
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
+            launchAtLoginController: launchAtLoginController
         )
 
         model.selectedPrimaryInputSourceID = "com.apple.keylayout.ABC"
         model.selectedVoiceInputSourceID = "com.example.voice"
         model.launchAtLoginEnabled = true
+        model.optionPendingWindow = 0.25
+        model.cooldownDuration = 7
+        model.voiceExitDelay = 1.2
 
         model.saveSelections()
 
-        #expect(store.saved == VoiceSwitchSettings(primaryInputSourceID: "com.apple.keylayout.ABC", voiceInputSourceID: "com.example.voice", launchAtLoginEnabled: true))
+        #expect(store.saved == VoiceSwitchSettings(
+            primaryInputSourceID: "com.apple.keylayout.ABC",
+            voiceInputSourceID: "com.example.voice",
+            launchAtLoginEnabled: true,
+            optionPendingWindow: 0.25,
+            cooldownDuration: 7,
+            voiceExitDelay: 1.2
+        ))
+        #expect(launchAtLoginController.lastEnabled == true)
+    }
+
+    @Test
+    func saveSelectionsLogsLaunchAtLoginFailure() {
+        let store = InMemorySettingsStore(initial: VoiceSwitchSettings())
+        let launchAtLoginController = StubLaunchAtLoginController(
+            isEnabled: false,
+            error: LaunchAtLoginError.requiresApproval
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: store,
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
+            launchAtLoginController: launchAtLoginController
+        )
+
+        model.launchAtLoginEnabled = true
+        model.saveSelections()
+
+        #expect(model.launchAtLoginErrorMessage?.contains("requires user approval") == true)
+        #expect(model.logEntries.contains { $0.contains("trigger=launch_at_login") })
+        #expect(model.logEntries.contains { $0.contains("result=failed") })
     }
 
     @Test
@@ -113,5 +156,27 @@ private struct StubPermissionProvider: PermissionStatusProviding, Sendable {
 
     func snapshot() -> PermissionSnapshot {
         current
+    }
+}
+
+private final class StubLaunchAtLoginController: LaunchAtLoginControlling, @unchecked Sendable {
+    let isEnabledValue: Bool
+    let error: Error?
+    private(set) var lastEnabled: Bool?
+
+    init(isEnabled: Bool, error: Error? = nil) {
+        self.isEnabledValue = isEnabled
+        self.error = error
+    }
+
+    func isEnabled() -> Bool {
+        isEnabledValue
+    }
+
+    func setEnabled(_ enabled: Bool) throws {
+        lastEnabled = enabled
+        if let error {
+            throw error
+        }
     }
 }

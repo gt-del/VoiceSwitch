@@ -18,6 +18,11 @@ public protocol PermissionStatusProviding: Sendable {
     func snapshot() -> PermissionSnapshot
 }
 
+public protocol LaunchAtLoginControlling: Sendable {
+    func isEnabled() -> Bool
+    func setEnabled(_ enabled: Bool) throws
+}
+
 public protocol KeyboardEventListening: AnyObject {
     var isRunning: Bool { get }
     func start(eventHandler: @escaping @Sendable (KeyboardEventSummary) -> Void)

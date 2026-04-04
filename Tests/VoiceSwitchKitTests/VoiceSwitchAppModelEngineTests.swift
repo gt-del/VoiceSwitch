@@ -14,7 +14,12 @@ struct VoiceSwitchAppModelEngineTests {
                 result: EngineTransitionResult(
                     state: .optionPending,
                     action: .noOp,
-                    diagnostic: DiagnosticEntry(message: "Entered optionPending")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionPressed",
+                        reason: "entered_option_pending",
+                        sourceState: .idlePrimary,
+                        targetState: .optionPending
+                    )
                 )
             )
         )
@@ -32,7 +37,11 @@ struct VoiceSwitchAppModelEngineTests {
 private struct StubEngineBridge: EngineBridging {
     let result: EngineTransitionResult
 
-    func transition(from currentState: EngineState, event: InputBehavior) throws -> EngineTransitionResult {
+    func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult {
         result
     }
 }

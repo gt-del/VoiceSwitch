@@ -16,9 +16,14 @@ public final class VoiceSwitchAppModel {
     public private(set) var lastProgrammaticSwitchAt: Date?
     public private(set) var isCooldownActive: Bool
     public private(set) var cooldownDeadline: Date?
+    public private(set) var keyboardMonitoringErrorMessage: String?
+    public private(set) var launchAtLoginErrorMessage: String?
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
     public var launchAtLoginEnabled: Bool
+    public var optionPendingWindow: TimeInterval
+    public var cooldownDuration: TimeInterval
+    public var voiceExitDelay: TimeInterval
     public var logEntries: [String]
 
     private let settingsStore: SettingsStoring
@@ -26,11 +31,13 @@ public final class VoiceSwitchAppModel {
     private let inputSourceSwitchingService: InputSourceSwitching
     private let inputSourceObservationService: InputSourceObserving?
     private let permissionProvider: PermissionStatusProviding
+    private let launchAtLoginController: LaunchAtLoginControlling
     private let engineBridge: any EngineBridging
     private let keyboardEventService: KeyboardEventListening?
+    private let optionPendingScheduler: CooldownScheduling
+    private let voiceExitScheduler: CooldownScheduling
     private let cooldownScheduler: CooldownScheduling
     private let nowProvider: @Sendable () -> Date
-    private let cooldownDuration: TimeInterval
 
     public init(
         settingsStore: SettingsStoring,
@@ -38,22 +45,26 @@ public final class VoiceSwitchAppModel {
         inputSourceSwitchingService: InputSourceSwitching = InputSourceSwitchingService(),
         inputSourceObservationService: InputSourceObserving? = nil,
         permissionProvider: PermissionStatusProviding,
+        launchAtLoginController: LaunchAtLoginControlling = NoopLaunchAtLoginController(),
         engineBridge: any EngineBridging = RustEngineBridge(),
         keyboardEventService: KeyboardEventListening? = nil,
+        optionPendingScheduler: CooldownScheduling = CooldownScheduler(),
+        voiceExitScheduler: CooldownScheduling = CooldownScheduler(),
         cooldownScheduler: CooldownScheduling = CooldownScheduler(),
-        nowProvider: @escaping @Sendable () -> Date = Date.init,
-        cooldownDuration: TimeInterval = 5
+        nowProvider: @escaping @Sendable () -> Date = Date.init
     ) {
         self.settingsStore = settingsStore
         self.inputSourceProvider = inputSourceProvider
         self.inputSourceSwitchingService = inputSourceSwitchingService
         self.inputSourceObservationService = inputSourceObservationService
         self.permissionProvider = permissionProvider
+        self.launchAtLoginController = launchAtLoginController
         self.engineBridge = engineBridge
         self.keyboardEventService = keyboardEventService
+        self.optionPendingScheduler = optionPendingScheduler
+        self.voiceExitScheduler = voiceExitScheduler
         self.cooldownScheduler = cooldownScheduler
         self.nowProvider = nowProvider
-        self.cooldownDuration = cooldownDuration
         self.availableInputSources = []
         self.permissionSnapshot = PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)
         self.configurationIssues = []
@@ -66,9 +77,14 @@ public final class VoiceSwitchAppModel {
         self.lastProgrammaticSwitchAt = nil
         self.isCooldownActive = false
         self.cooldownDeadline = nil
+        self.keyboardMonitoringErrorMessage = nil
+        self.launchAtLoginErrorMessage = nil
         self.selectedPrimaryInputSourceID = nil
         self.selectedVoiceInputSourceID = nil
         self.launchAtLoginEnabled = false
+        self.optionPendingWindow = EngineConfiguration().optionPendingWindow
+        self.cooldownDuration = EngineConfiguration().cooldownDuration
+        self.voiceExitDelay = EngineConfiguration().voiceExitDelay
         self.logEntries = []
     }
 
@@ -95,7 +111,16 @@ public final class VoiceSwitchAppModel {
             selectedVoiceInputSourceID = settings.voiceInputSourceID
         }
 
-        launchAtLoginEnabled = settings.launchAtLoginEnabled
+        let launchAtLoginStatus = launchAtLoginController.isEnabled()
+        launchAtLoginEnabled = launchAtLoginStatus
+        if settings.launchAtLoginEnabled != launchAtLoginStatus {
+            logEntries.append(
+                "trigger=launch_at_login reason=status_mismatch source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) requested=\(settings.launchAtLoginEnabled) actual=\(launchAtLoginStatus)"
+            )
+        }
+        optionPendingWindow = settings.optionPendingWindow
+        cooldownDuration = settings.cooldownDuration
+        voiceExitDelay = settings.voiceExitDelay
         keyboardEventService?.start { [weak self] summary in
             if Thread.isMainThread {
                 MainActor.assumeIsolated { [weak self] in
@@ -125,10 +150,51 @@ public final class VoiceSwitchAppModel {
         let settings = VoiceSwitchSettings(
             primaryInputSourceID: selectedPrimaryInputSourceID,
             voiceInputSourceID: selectedVoiceInputSourceID,
-            launchAtLoginEnabled: launchAtLoginEnabled
+            launchAtLoginEnabled: launchAtLoginEnabled,
+            optionPendingWindow: optionPendingWindow,
+            cooldownDuration: cooldownDuration,
+            voiceExitDelay: voiceExitDelay
         )
         settingsStore.save(settings)
+        do {
+            try launchAtLoginController.setEnabled(launchAtLoginEnabled)
+            launchAtLoginErrorMessage = nil
+            logEntries.append(
+                "trigger=launch_at_login reason=updated source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=success"
+            )
+        } catch {
+            launchAtLoginErrorMessage = error.localizedDescription
+            logEntries.append(
+                "trigger=launch_at_login reason=\(error.localizedDescription) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=failed"
+            )
+        }
         logEntries.append("Saved settings at \(Date.now.formatted(date: .omitted, time: .standard))")
+    }
+
+    public func retryKeyboardMonitoring() {
+        permissionSnapshot = permissionProvider.snapshot()
+        guard permissionSnapshot.accessibility == .authorized else {
+            keyboardMonitoringErrorMessage = "Accessibility permission denied"
+            logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=accessibility_denied")
+            eventTapStatus = .stopped
+            return
+        }
+
+        keyboardEventService?.stop()
+        keyboardEventService?.start { [weak self] summary in
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleKeyboardEvent(summary)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleKeyboardEvent(summary)
+                }
+            }
+        }
+        keyboardMonitoringErrorMessage = nil
+        eventTapStatus = keyboardEventService?.isRunning == true ? .running : .stopped
+        logEntries.append("listener=keyboard_monitoring retryResult=started state=\(eventTapStatus.rawValue)")
     }
 
     public func sendTestEvent(_ event: InputBehavior) throws {
@@ -148,8 +214,12 @@ public final class VoiceSwitchAppModel {
         switch summary {
         case .listenerInactive, .tapDisabled:
             eventTapStatus = .stopped
+            keyboardMonitoringErrorMessage = summary.rawDescription
         case .tapRecoveryAttempted, .optionPressed, .optionReleased, .typingKey:
             eventTapStatus = .running
+            if case .tapRecoveryAttempted = summary {
+                keyboardMonitoringErrorMessage = nil
+            }
         }
 
         logEntries.append("Keyboard raw=\(summary.rawDescription)")
@@ -196,26 +266,35 @@ public final class VoiceSwitchAppModel {
 
     private func advanceEngine(for event: InputBehavior, rawDescription: String?) throws {
         let previousState = currentEngineState
-        let result = try engineBridge.transition(from: previousState, event: event)
+        let result = try engineBridge.transition(
+            from: previousState,
+            event: event,
+            configuration: engineConfiguration
+        )
 
         lastInputBehavior = event
         currentEngineState = result.state
         lastEngineAction = result.action
 
-        var message = "Engine event=\(event.rawValue) previousState=\(previousState.rawValue) newState=\(result.state.rawValue) action=\(result.action.rawValue) diagnostic=\(result.diagnostic.message)"
-        if let rawDescription {
-            message = "Keyboard raw=\(rawDescription) " + message
-        }
-        logEntries.append(message)
+        updateTimerScheduling(previousState: previousState, event: event, result: result)
+        appendTransitionLog(
+            diagnostic: result.diagnostic,
+            action: result.action,
+            rawDescription: rawDescription
+        )
 
         if previousState == .cooldown, event != .cooldownExpired, result.action == .noOp {
-            logEntries.append("Cooldown state=active cooldownSkipped event=\(event.rawValue)")
+            logEntries.append(
+                "trigger=\(event.rawValue) reason=cooldown_skipped_automatic_switch source_state=\(previousState.rawValue) target_state=\(result.state.rawValue) action=\(result.action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: result.action) ?? "none") cooldown_status=\(cooldownStatusLabel)"
+            )
         }
 
         if event == .cooldownExpired {
             isCooldownActive = false
             cooldownDeadline = nil
-            logEntries.append("Cooldown event=cooldownExpired state=ended")
+            logEntries.append(
+                "trigger=cooldownExpired reason=cooldown_ended source_state=cooldown target_state=\(result.state.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)"
+            )
         }
 
         executeEngineAction(result.action)
@@ -249,14 +328,14 @@ public final class VoiceSwitchAppModel {
     ) {
         guard let targetInputSourceID else {
             logEntries.append(
-                "Input source action=\(action.rawValue) switchResult=skipped reason=\(configurationLabel) input source is not configured"
+                "trigger=input_source_switch reason=\(configurationLabel)_input_source_not_configured source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) switch_result=skipped"
             )
             return
         }
 
         guard availableInputSources.contains(where: { $0.id == targetInputSourceID }) else {
             logEntries.append(
-                "Input source action=\(action.rawValue) targetInputSource=\(targetInputSourceID) switchResult=skipped reason=target input source is unavailable"
+                "trigger=input_source_switch reason=target_input_source_unavailable source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=skipped"
             )
             return
         }
@@ -266,14 +345,14 @@ public final class VoiceSwitchAppModel {
             currentInputSourceID = try inputSourceSwitchingService.currentSelectedInputSourceID()
         } catch {
             logEntries.append(
-                "Input source action=\(action.rawValue) targetInputSource=\(targetInputSourceID) switchResult=failed reason=\(String(describing: error))"
+                "trigger=input_source_switch reason=\(String(describing: error)) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=unknown target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=failed"
             )
             return
         }
 
         if currentInputSourceID == targetInputSourceID {
             logEntries.append(
-                "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=skipped reason=target already selected"
+                "trigger=input_source_switch reason=target_already_selected source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=skipped"
             )
             return
         }
@@ -283,11 +362,11 @@ public final class VoiceSwitchAppModel {
             lastProgrammaticSwitchTargetInputSourceID = targetInputSourceID
             lastProgrammaticSwitchAt = nowProvider()
             logEntries.append(
-                "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=success"
+                "trigger=input_source_switch reason=executed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=success"
             )
         } catch {
             logEntries.append(
-                "Input source action=\(action.rawValue) currentInputSource=\(currentInputSourceID ?? "none") targetInputSource=\(targetInputSourceID) switchResult=failed reason=\(error.localizedDescription)"
+                "trigger=input_source_switch reason=\(error.localizedDescription) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=failed"
             )
         }
     }
@@ -330,9 +409,9 @@ public final class VoiceSwitchAppModel {
         }
 
         if wasActive {
-            logEntries.append("Cooldown event=cooldownReset deadline=\(deadline.timeIntervalSince1970)")
+            logEntries.append("trigger=manualSwitchDetected reason=cooldown_reset source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=enterCooldown current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
         } else {
-            logEntries.append("Cooldown event=cooldownStarted deadline=\(deadline.timeIntervalSince1970)")
+            logEntries.append("trigger=manualSwitchDetected reason=cooldown_started source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=enterCooldown current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
         }
     }
 
@@ -340,7 +419,126 @@ public final class VoiceSwitchAppModel {
         do {
             try advanceEngine(for: .cooldownExpired, rawDescription: nil)
         } catch {
-            logEntries.append("Cooldown event=cooldownExpired failed error=\(String(describing: error))")
+            logEntries.append("trigger=cooldownExpired reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
         }
+    }
+
+    private var engineConfiguration: EngineConfiguration {
+        EngineConfiguration(
+            optionPendingWindow: optionPendingWindow,
+            cooldownDuration: cooldownDuration,
+            voiceExitDelay: voiceExitDelay
+        )
+    }
+
+    private var cooldownStatusLabel: String {
+        isCooldownActive ? "active" : "inactive"
+    }
+
+    private func updateTimerScheduling(
+        previousState: EngineState,
+        event: InputBehavior,
+        result: EngineTransitionResult
+    ) {
+        if result.state != .optionPending {
+            optionPendingScheduler.cancel()
+        }
+        if result.state != .voiceActive || event == .typingDetected || event == .manualSwitchDetected {
+            voiceExitScheduler.cancel()
+        }
+
+        switch (previousState, event, result.state) {
+        case (.idlePrimary, .optionPressed, .optionPending):
+            scheduleOptionPendingWindow()
+        case (.voiceActive, .optionReleased, .voiceActive):
+            scheduleVoiceExitDelay()
+        default:
+            break
+        }
+    }
+
+    private func scheduleOptionPendingWindow() {
+        let deadline = nowProvider().addingTimeInterval(optionPendingWindow)
+        optionPendingScheduler.schedule(deadline: deadline) { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleOptionPendingWindowExpired()
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleOptionPendingWindowExpired()
+                }
+            }
+        }
+
+        logEntries.append("trigger=optionPressed reason=option_window_started source_state=idlePrimary target_state=optionPending action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedVoiceInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
+    }
+
+    private func scheduleVoiceExitDelay() {
+        let deadline = nowProvider().addingTimeInterval(voiceExitDelay)
+        voiceExitScheduler.schedule(deadline: deadline) { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleVoiceExitDelayElapsed()
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleVoiceExitDelayElapsed()
+                }
+            }
+        }
+
+        logEntries.append("trigger=optionReleased reason=voice_exit_delay_started source_state=voiceActive target_state=voiceActive action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedPrimaryInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
+    }
+
+    private func handleOptionPendingWindowExpired() {
+        do {
+            try advanceEngine(for: .optionWindowExpired, rawDescription: nil)
+        } catch {
+            logEntries.append("trigger=optionWindowExpired reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedVoiceInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
+        }
+    }
+
+    private func handleVoiceExitDelayElapsed() {
+        do {
+            try advanceEngine(for: .voiceExitDelayElapsed, rawDescription: nil)
+        } catch {
+            logEntries.append("trigger=voiceExitDelayElapsed reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedPrimaryInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
+        }
+    }
+
+    private func appendTransitionLog(
+        diagnostic: DiagnosticEntry,
+        action: EngineAction,
+        rawDescription: String?
+    ) {
+        var entry = "trigger=\(diagnostic.trigger) reason=\(diagnostic.reason) source_state=\(diagnostic.sourceState.rawValue) target_state=\(diagnostic.targetState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: action) ?? "none") cooldown_status=\(cooldownStatusLabel)"
+        if let rawDescription {
+            entry += " raw_event=\(rawDescription)"
+        }
+        logEntries.append(entry)
+    }
+
+    private func targetInputSourceID(for action: EngineAction) -> String? {
+        switch action {
+        case .switchToPrimary:
+            return selectedPrimaryInputSourceID
+        case .switchToVoice:
+            return selectedVoiceInputSourceID
+        case .enterCooldown, .noOp:
+            return nil
+        }
+    }
+
+    private func currentInputSourceIDForLog() -> String? {
+        try? inputSourceSwitchingService.currentSelectedInputSourceID()
     }
 }

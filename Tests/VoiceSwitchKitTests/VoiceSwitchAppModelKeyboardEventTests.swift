@@ -32,7 +32,12 @@ struct VoiceSwitchAppModelKeyboardEventTests {
                 result: EngineTransitionResult(
                     state: .optionPending,
                     action: .noOp,
-                    diagnostic: DiagnosticEntry(message: "Entered optionPending")
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionPressed",
+                        reason: "entered_option_pending",
+                        sourceState: .idlePrimary,
+                        targetState: .optionPending
+                    )
                 )
             ),
             keyboardEventService: service
@@ -46,10 +51,10 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         #expect(model.lastEngineAction == .noOp)
         #expect(model.eventTapStatus == .running)
         #expect(model.lastRawKeyboardEventSummary == "optionDown(keyCode:58)")
-        #expect(model.logEntries.contains { $0.contains("raw=optionDown(keyCode:58)") })
-        #expect(model.logEntries.contains { $0.contains("event=optionPressed") })
-        #expect(model.logEntries.contains { $0.contains("newState=optionPending") })
-        #expect(model.logEntries.contains { $0.contains("diagnostic=Entered optionPending") })
+        #expect(model.logEntries.contains { $0.contains("raw_event=optionDown(keyCode:58)") })
+        #expect(model.logEntries.contains { $0.contains("trigger=optionPressed") })
+        #expect(model.logEntries.contains { $0.contains("target_state=optionPending") })
+        #expect(model.logEntries.contains { $0.contains("reason=entered_option_pending") })
     }
 
     @Test
@@ -70,6 +75,53 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         #expect(model.lastRawKeyboardEventSummary == "listenerInactive(reason:Accessibility permission denied)")
         #expect(model.lastInputBehavior == nil)
         #expect(model.logEntries.contains { $0.contains("listenerInactive(reason:Accessibility permission denied)") })
+        #expect(model.keyboardMonitoringErrorMessage == "listenerInactive(reason:Accessibility permission denied)")
+    }
+
+    @Test
+    func retryKeyboardMonitoringWithoutPermissionKeepsListenerStopped() throws {
+        let service = StubKeyboardEventService()
+        let permissions = MutableKeyboardPermissionProvider(
+            current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .unknown)
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            permissionProvider: permissions,
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        model.retryKeyboardMonitoring()
+
+        #expect(model.eventTapStatus == .stopped)
+        #expect(model.keyboardMonitoringErrorMessage == "Accessibility permission denied")
+        #expect(model.logEntries.contains { $0.contains("retryResult=skipped") })
+    }
+
+    @Test
+    func retryKeyboardMonitoringRestartsListenerAfterPermissionRecovery() throws {
+        let service = StubKeyboardEventService()
+        service.isRunning = false
+        let permissions = MutableKeyboardPermissionProvider(
+            current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            permissionProvider: permissions,
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        model.retryKeyboardMonitoring()
+
+        #expect(service.startCallCount == 2)
+        #expect(model.eventTapStatus == .running)
+        #expect(model.keyboardMonitoringErrorMessage == nil)
+        #expect(model.logEntries.contains { $0.contains("retryResult=started") })
     }
 }
 
@@ -80,6 +132,7 @@ private final class StubKeyboardEventService: KeyboardEventListening, @unchecked
 
     func start(eventHandler: @escaping @Sendable (KeyboardEventSummary) -> Void) {
         startCallCount += 1
+        isRunning = true
         handler = eventHandler
     }
 
@@ -101,7 +154,11 @@ private final class StubKeyboardEventService: KeyboardEventListening, @unchecked
 private struct StubKeyboardEngineBridge: EngineBridging {
     let result: EngineTransitionResult
 
-    func transition(from currentState: EngineState, event: InputBehavior) throws -> EngineTransitionResult {
+    func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult {
         result
     }
 }
@@ -136,10 +193,27 @@ private struct KeyboardTestPermissionProvider: PermissionStatusProviding, Sendab
     }
 }
 
+private final class MutableKeyboardPermissionProvider: PermissionStatusProviding, @unchecked Sendable {
+    var current: PermissionSnapshot
+
+    init(current: PermissionSnapshot) {
+        self.current = current
+    }
+
+    func snapshot() -> PermissionSnapshot {
+        current
+    }
+}
+
 private extension EngineTransitionResult {
     static let idlePrimaryResult = EngineTransitionResult(
         state: .idlePrimary,
         action: .noOp,
-        diagnostic: DiagnosticEntry(message: "No state change")
+        diagnostic: DiagnosticEntry(
+            trigger: "ignored",
+            reason: "no_state_change",
+            sourceState: .idlePrimary,
+            targetState: .idlePrimary
+        )
     )
 }
