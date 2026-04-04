@@ -6,7 +6,6 @@ import Observation
 public final class VoiceSwitchAppModel {
     public private(set) var availableInputSources: [InputSourceDescriptor]
     public private(set) var permissionSnapshot: PermissionSnapshot
-    public private(set) var configurationIssues: [String]
     public private(set) var currentEngineState: EngineState
     public private(set) var lastInputBehavior: InputBehavior?
     public private(set) var lastEngineAction: EngineAction?
@@ -20,11 +19,102 @@ public final class VoiceSwitchAppModel {
     public private(set) var launchAtLoginErrorMessage: String?
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
+    public var isEnabled: Bool
     public var launchAtLoginEnabled: Bool
     public var voiceActivationDelay: TimeInterval
     public var releaseReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
     public var logEntries: [String]
+
+    public var configurationIssues: [String] {
+        var issues: [String] = []
+
+        if let unavailablePrimaryIssue {
+            issues.append(unavailablePrimaryIssue)
+        }
+        if let unavailableVoiceIssue {
+            issues.append(unavailableVoiceIssue)
+        }
+        if selectedPrimaryInputSourceID == nil {
+            issues.append("Primary IME is not configured.")
+        }
+        if selectedVoiceInputSourceID == nil {
+            issues.append("Voice IME is not configured.")
+        }
+        if
+            let primaryID = selectedPrimaryInputSourceID,
+            let voiceID = selectedVoiceInputSourceID,
+            primaryID == voiceID
+        {
+            issues.append("Primary IME and Voice IME must be different.")
+        }
+
+        return issues
+    }
+
+    public var canRun: Bool {
+        blockingIssue == nil
+    }
+
+    public var blockingIssue: String? {
+        if permissionSnapshot.accessibility != .authorized {
+            return "未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。"
+        }
+        if selectedPrimaryInputSourceID == nil {
+            return "Primary IME is not configured."
+        }
+        if selectedVoiceInputSourceID == nil {
+            return "Voice IME is not configured."
+        }
+        if
+            let primaryID = selectedPrimaryInputSourceID,
+            let voiceID = selectedVoiceInputSourceID,
+            primaryID == voiceID
+        {
+            return "Primary IME and Voice IME must be different."
+        }
+        if let unavailablePrimaryIssue {
+            return unavailablePrimaryIssue
+        }
+        if let unavailableVoiceIssue {
+            return unavailableVoiceIssue
+        }
+        if keyboardEventService != nil && isEnabled && eventTapStatus != .running {
+            return "Keyboard monitoring is not running. Retry Monitoring to resume automation."
+        }
+
+        return nil
+    }
+
+    public var statusSummary: String {
+        if !isEnabled {
+            return "Disabled"
+        }
+        if !canRun {
+            return "Unavailable"
+        }
+
+        switch currentEngineState {
+        case .idlePrimary:
+            return "Typing"
+        case .voiceHeld:
+            return "Voice Held"
+        case .cooldown:
+            return "Cooldown"
+        }
+    }
+
+    public var configurationSummary: String {
+        "Primary: \(displayName(forInputSourceID: selectedPrimaryInputSourceID)) | Voice: \(displayName(forInputSourceID: selectedVoiceInputSourceID))"
+    }
+
+    public var selectedPrimaryInputSourceName: String {
+        displayName(forInputSourceID: selectedPrimaryInputSourceID)
+    }
+
+    public var selectedVoiceInputSourceName: String {
+        displayName(forInputSourceID: selectedVoiceInputSourceID)
+    }
 
     private let settingsStore: SettingsStoring
     private let inputSourceProvider: InputSourceProviding
@@ -38,6 +128,8 @@ public final class VoiceSwitchAppModel {
     private let releaseReturnScheduler: CooldownScheduling
     private let cooldownScheduler: CooldownScheduling
     private let nowProvider: @Sendable () -> Date
+    private var unavailablePrimaryIssue: String?
+    private var unavailableVoiceIssue: String?
 
     public init(
         settingsStore: SettingsStoring,
@@ -67,7 +159,6 @@ public final class VoiceSwitchAppModel {
         self.nowProvider = nowProvider
         self.availableInputSources = []
         self.permissionSnapshot = PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)
-        self.configurationIssues = []
         self.currentEngineState = .idlePrimary
         self.lastInputBehavior = nil
         self.lastEngineAction = nil
@@ -81,18 +172,22 @@ public final class VoiceSwitchAppModel {
         self.launchAtLoginErrorMessage = nil
         self.selectedPrimaryInputSourceID = nil
         self.selectedVoiceInputSourceID = nil
+        self.isEnabled = true
         self.launchAtLoginEnabled = false
         self.voiceActivationDelay = EngineConfiguration().voiceActivationDelay
         self.releaseReturnDelay = EngineConfiguration().releaseReturnDelay
         self.cooldownDuration = EngineConfiguration().cooldownDuration
         self.logEntries = []
+        self.unavailablePrimaryIssue = nil
+        self.unavailableVoiceIssue = nil
     }
 
     public func load() throws {
         let settings = settingsStore.load()
         availableInputSources = try inputSourceProvider.selectableInputSources()
         permissionSnapshot = permissionProvider.snapshot()
-        if permissionSnapshot.accessibility != .authorized {
+
+        if settings.isEnabled && permissionSnapshot.accessibility != .authorized {
             permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
             if permissionSnapshot.accessibility != .authorized {
                 keyboardMonitoringErrorMessage = "Accessibility permission denied. Approve VoiceSwitch in Privacy & Security > Accessibility, then retry."
@@ -101,12 +196,14 @@ public final class VoiceSwitchAppModel {
         } else {
             keyboardMonitoringErrorMessage = nil
         }
-        configurationIssues = []
+
         let availableIDs = Set(availableInputSources.map(\.id))
+        unavailablePrimaryIssue = nil
+        unavailableVoiceIssue = nil
 
         if let primaryID = settings.primaryInputSourceID, !availableIDs.contains(primaryID) {
             selectedPrimaryInputSourceID = nil
-            configurationIssues.append("Primary IME is no longer available. Please choose another input source.")
+            unavailablePrimaryIssue = "Primary IME is no longer available. Please choose another input source."
             logEntries.append("Primary IME configuration became unavailable: \(primaryID)")
         } else {
             selectedPrimaryInputSourceID = settings.primaryInputSourceID
@@ -114,12 +211,13 @@ public final class VoiceSwitchAppModel {
 
         if let voiceID = settings.voiceInputSourceID, !availableIDs.contains(voiceID) {
             selectedVoiceInputSourceID = nil
-            configurationIssues.append("Voice IME is no longer available. Please choose another input source.")
+            unavailableVoiceIssue = "Voice IME is no longer available. Please choose another input source."
             logEntries.append("Voice IME configuration became unavailable: \(voiceID)")
         } else {
             selectedVoiceInputSourceID = settings.voiceInputSourceID
         }
 
+        isEnabled = settings.isEnabled
         let launchAtLoginStatus = launchAtLoginController.isEnabled()
         launchAtLoginEnabled = launchAtLoginStatus
         if settings.launchAtLoginEnabled != launchAtLoginStatus {
@@ -130,41 +228,14 @@ public final class VoiceSwitchAppModel {
         voiceActivationDelay = settings.voiceActivationDelay
         releaseReturnDelay = settings.releaseReturnDelay
         cooldownDuration = settings.cooldownDuration
-        keyboardEventService?.start { [weak self] summary in
-            if Thread.isMainThread {
-                MainActor.assumeIsolated { [weak self] in
-                    self?.handleKeyboardEvent(summary)
-                }
-            } else {
-                Task { @MainActor [weak self] in
-                    self?.handleKeyboardEvent(summary)
-                }
-            }
-        }
-        inputSourceObservationService?.start { [weak self] observation in
-            if Thread.isMainThread {
-                MainActor.assumeIsolated { [weak self] in
-                    self?.handleInputSourceObservation(observation)
-                }
-            } else {
-                Task { @MainActor [weak self] in
-                    self?.handleInputSourceObservation(observation)
-                }
-            }
-        }
-        eventTapStatus = keyboardEventService?.isRunning == true ? .running : .stopped
+
+        updateAutomationState()
     }
 
     public func saveSelections() {
-        let settings = VoiceSwitchSettings(
-            primaryInputSourceID: selectedPrimaryInputSourceID,
-            voiceInputSourceID: selectedVoiceInputSourceID,
-            launchAtLoginEnabled: launchAtLoginEnabled,
-            voiceActivationDelay: voiceActivationDelay,
-            releaseReturnDelay: releaseReturnDelay,
-            cooldownDuration: cooldownDuration
-        )
-        settingsStore.save(settings)
+        settingsStore.save(makeSettings())
+        updateAutomationState()
+
         do {
             try launchAtLoginController.setEnabled(launchAtLoginEnabled)
             launchAtLoginErrorMessage = nil
@@ -177,7 +248,42 @@ public final class VoiceSwitchAppModel {
                 "trigger=launch_at_login reason=\(error.localizedDescription) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=failed"
             )
         }
+
         logEntries.append("Saved settings at \(Date.now.formatted(date: .omitted, time: .standard))")
+    }
+
+    public func updatePrimaryInputSourceID(_ inputSourceID: String?) {
+        selectedPrimaryInputSourceID = inputSourceID
+        if inputSourceID != nil {
+            unavailablePrimaryIssue = nil
+        }
+    }
+
+    public func updateVoiceInputSourceID(_ inputSourceID: String?) {
+        selectedVoiceInputSourceID = inputSourceID
+        if inputSourceID != nil {
+            unavailableVoiceIssue = nil
+        }
+    }
+
+    public func setEnabled(_ enabled: Bool) {
+        guard isEnabled != enabled else {
+            return
+        }
+
+        isEnabled = enabled
+        if !enabled {
+            currentEngineState = .idlePrimary
+            lastEngineAction = .noOp
+            isCooldownActive = false
+            cooldownDeadline = nil
+            voiceActivationScheduler.cancel()
+            releaseReturnScheduler.cancel()
+            cooldownScheduler.cancel()
+        }
+
+        settingsStore.save(makeSettings())
+        updateAutomationState()
     }
 
     public func retryKeyboardMonitoring() {
@@ -189,21 +295,11 @@ public final class VoiceSwitchAppModel {
             return
         }
 
-        keyboardEventService?.stop()
-        keyboardEventService?.start { [weak self] summary in
-            if Thread.isMainThread {
-                MainActor.assumeIsolated { [weak self] in
-                    self?.handleKeyboardEvent(summary)
-                }
-            } else {
-                Task { @MainActor [weak self] in
-                    self?.handleKeyboardEvent(summary)
-                }
-            }
+        updateAutomationState(forceRestart: true)
+        if eventTapStatus == .running {
+            keyboardMonitoringErrorMessage = nil
+            logEntries.append("listener=keyboard_monitoring retryResult=started state=\(eventTapStatus.rawValue)")
         }
-        keyboardMonitoringErrorMessage = nil
-        eventTapStatus = keyboardEventService?.isRunning == true ? .running : .stopped
-        logEntries.append("listener=keyboard_monitoring retryResult=started state=\(eventTapStatus.rawValue)")
     }
 
     public func sendTestEvent(_ event: InputBehavior) throws {
@@ -246,6 +342,7 @@ public final class VoiceSwitchAppModel {
 
     public func handleInputSourceObservation(_ observation: InputSourceObservation) {
         let now = nowProvider()
+
         switch observation {
         case let .changed(inputSourceID, rawDescription):
             let origin = classifyInputSourceChange(
@@ -272,6 +369,20 @@ public final class VoiceSwitchAppModel {
     }
 
     private func advanceEngine(for event: InputBehavior, rawDescription: String?) throws {
+        guard isEnabled else {
+            lastInputBehavior = event
+            lastEngineAction = .noOp
+            logEntries.append("trigger=\(event.rawValue) reason=automation_disabled source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)")
+            return
+        }
+
+        guard canRun else {
+            lastInputBehavior = event
+            lastEngineAction = .noOp
+            logEntries.append("trigger=\(event.rawValue) reason=automation_unavailable source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)")
+            return
+        }
+
         let previousState = currentEngineState
         let result = try engineBridge.transition(
             from: previousState,
@@ -331,9 +442,7 @@ public final class VoiceSwitchAppModel {
                 targetInputSourceID: selectedVoiceInputSourceID,
                 configurationLabel: "voice"
             )
-        case .enterCooldown:
-            break
-        case .noOp:
+        case .enterCooldown, .noOp:
             break
         }
     }
@@ -453,6 +562,56 @@ public final class VoiceSwitchAppModel {
         isCooldownActive ? "active" : "inactive"
     }
 
+    private var shouldRunAutomation: Bool {
+        isEnabled && permissionSnapshot.accessibility == .authorized && configurationIssues.isEmpty
+    }
+
+    private func updateAutomationState(forceRestart: Bool = false) {
+        if forceRestart {
+            keyboardEventService?.stop()
+            inputSourceObservationService?.stop()
+        }
+
+        guard shouldRunAutomation else {
+            keyboardEventService?.stop()
+            inputSourceObservationService?.stop()
+            eventTapStatus = .stopped
+            return
+        }
+
+        startKeyboardMonitoring()
+        startInputObservation()
+    }
+
+    private func startKeyboardMonitoring() {
+        keyboardEventService?.start { [weak self] summary in
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleKeyboardEvent(summary)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleKeyboardEvent(summary)
+                }
+            }
+        }
+        eventTapStatus = keyboardEventService?.isRunning == true ? .running : .stopped
+    }
+
+    private func startInputObservation() {
+        inputSourceObservationService?.start { [weak self] observation in
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleInputSourceObservation(observation)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleInputSourceObservation(observation)
+                }
+            }
+        }
+    }
+
     private func updateTimerScheduling(
         previousState: EngineState,
         event: InputBehavior,
@@ -464,7 +623,7 @@ public final class VoiceSwitchAppModel {
         if result.timer?.kind != .releaseReturnDelay {
             releaseReturnScheduler.cancel()
         }
-        if result.timer?.kind != .cooldown {
+        if result.timer?.kind != .cooldown && result.state != .cooldown {
             cooldownScheduler.cancel()
         }
 
@@ -569,5 +728,24 @@ public final class VoiceSwitchAppModel {
 
     private func currentInputSourceIDForLog() -> String? {
         try? inputSourceSwitchingService.currentSelectedInputSourceID()
+    }
+
+    private func makeSettings() -> VoiceSwitchSettings {
+        VoiceSwitchSettings(
+            primaryInputSourceID: selectedPrimaryInputSourceID,
+            voiceInputSourceID: selectedVoiceInputSourceID,
+            isEnabled: isEnabled,
+            launchAtLoginEnabled: launchAtLoginEnabled,
+            voiceActivationDelay: voiceActivationDelay,
+            releaseReturnDelay: releaseReturnDelay,
+            cooldownDuration: cooldownDuration
+        )
+    }
+
+    private func displayName(forInputSourceID inputSourceID: String?) -> String {
+        guard let inputSourceID else {
+            return "Not Set"
+        }
+        return availableInputSources.first(where: { $0.id == inputSourceID })?.displayName ?? inputSourceID
     }
 }

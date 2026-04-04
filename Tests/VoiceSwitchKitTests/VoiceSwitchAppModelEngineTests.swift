@@ -7,9 +7,20 @@ struct VoiceSwitchAppModelEngineTests {
     @Test
     func sendingEventUpdatesStateActionAndLogs() throws {
         let model = VoiceSwitchAppModel(
-            settingsStore: EngineTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: EngineTestInputSourceProvider(sources: []),
-            permissionProvider: EngineTestPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
+            settingsStore: EngineTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: EngineTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            inputSourceSwitchingService: StubEngineInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: EngineTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,
@@ -24,6 +35,7 @@ struct VoiceSwitchAppModelEngineTests {
             )
         )
 
+        try model.load()
         try model.sendTestEvent(.optionPressed)
 
         #expect(model.currentEngineState == .voiceHeld)
@@ -32,6 +44,20 @@ struct VoiceSwitchAppModelEngineTests {
         #expect(model.logEntries.contains { $0.contains("optionPressed") })
         #expect(model.logEntries.contains { $0.contains("voiceHeld") })
     }
+}
+
+private final class StubEngineInputSourceSwitchingService: InputSourceSwitching, @unchecked Sendable {
+    let currentInputSourceID: String?
+
+    init(currentInputSourceID: String?) {
+        self.currentInputSourceID = currentInputSourceID
+    }
+
+    func currentSelectedInputSourceID() throws -> String? {
+        currentInputSourceID
+    }
+
+    func switchToInputSource(id: String) throws {}
 }
 
 private struct StubEngineBridge: EngineBridging {

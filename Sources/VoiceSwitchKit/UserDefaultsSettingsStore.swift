@@ -4,6 +4,7 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
     private enum Keys {
         static let primaryInputSourceID = "voiceSwitch.primaryInputSourceID"
         static let voiceInputSourceID = "voiceSwitch.voiceInputSourceID"
+        static let isEnabled = "voiceSwitch.isEnabled"
         static let launchAtLoginEnabled = "voiceSwitch.launchAtLoginEnabled"
         static let voiceActivationDelay = "voiceSwitch.voiceActivationDelay"
         static let releaseReturnDelay = "voiceSwitch.releaseReturnDelay"
@@ -24,6 +25,9 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         return VoiceSwitchSettings(
             primaryInputSourceID: userDefaults.string(forKey: Keys.primaryInputSourceID),
             voiceInputSourceID: userDefaults.string(forKey: Keys.voiceInputSourceID),
+            isEnabled: userDefaults.object(forKey: Keys.isEnabled) == nil
+                ? defaults.isEnabled
+                : userDefaults.bool(forKey: Keys.isEnabled),
             launchAtLoginEnabled: userDefaults.bool(forKey: Keys.launchAtLoginEnabled),
             voiceActivationDelay: loadDelay(
                 primaryKey: Keys.voiceActivationDelay,
@@ -44,6 +48,7 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
     public func save(_ settings: VoiceSwitchSettings) {
         userDefaults.set(settings.primaryInputSourceID, forKey: Keys.primaryInputSourceID)
         userDefaults.set(settings.voiceInputSourceID, forKey: Keys.voiceInputSourceID)
+        userDefaults.set(settings.isEnabled, forKey: Keys.isEnabled)
         userDefaults.set(settings.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
         userDefaults.set(settings.voiceActivationDelay, forKey: Keys.voiceActivationDelay)
         userDefaults.set(settings.releaseReturnDelay, forKey: Keys.releaseReturnDelay)

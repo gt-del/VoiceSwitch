@@ -10,6 +10,7 @@ struct VoiceSwitchAppModelTests {
             initial: VoiceSwitchSettings(
                 primaryInputSourceID: "primary.id",
                 voiceInputSourceID: "voice.id",
+                isEnabled: false,
                 launchAtLoginEnabled: true,
                 voiceActivationDelay: 0.25,
                 releaseReturnDelay: 0.1,
@@ -37,6 +38,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(model.selectedPrimaryInputSourceID == "primary.id")
         #expect(model.selectedVoiceInputSourceID == "voice.id")
+        #expect(!model.isEnabled)
         #expect(model.launchAtLoginEnabled)
         #expect(model.voiceActivationDelay == 0.25)
         #expect(model.releaseReturnDelay == 0.1)
@@ -58,6 +60,7 @@ struct VoiceSwitchAppModelTests {
 
         model.selectedPrimaryInputSourceID = "com.apple.keylayout.ABC"
         model.selectedVoiceInputSourceID = "com.example.voice"
+        model.isEnabled = false
         model.launchAtLoginEnabled = true
         model.voiceActivationDelay = 0.25
         model.releaseReturnDelay = 0.1
@@ -68,6 +71,7 @@ struct VoiceSwitchAppModelTests {
         #expect(store.saved == VoiceSwitchSettings(
             primaryInputSourceID: "com.apple.keylayout.ABC",
             voiceInputSourceID: "com.example.voice",
+            isEnabled: false,
             launchAtLoginEnabled: true,
             voiceActivationDelay: 0.25,
             releaseReturnDelay: 0.1,
@@ -121,8 +125,9 @@ struct VoiceSwitchAppModelTests {
 
         #expect(model.selectedPrimaryInputSourceID == nil)
         #expect(model.selectedVoiceInputSourceID == "voice.id")
-        #expect(model.configurationIssues.count == 1)
-        #expect(model.configurationIssues.first?.contains("Primary IME") == true)
+        #expect(model.configurationIssues.contains { $0.contains("Primary IME is no longer available") })
+        #expect(!model.canRun)
+        #expect(model.statusSummary == "Unavailable")
     }
 
     @Test
@@ -147,6 +152,94 @@ struct VoiceSwitchAppModelTests {
         #expect(model.logEntries.contains { $0.contains("reason=status_mismatch") })
         #expect(model.logEntries.contains { $0.contains("requested=true") })
         #expect(model.logEntries.contains { $0.contains("actual=false") })
+    }
+
+    @Test
+    func missingInputSourceConfigurationBlocksAutomation() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: nil,
+                    voiceInputSourceID: nil
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown))
+        )
+
+        try model.load()
+
+        #expect(!model.canRun)
+        #expect(model.blockingIssue == "Primary IME is not configured.")
+        #expect(model.statusSummary == "Unavailable")
+    }
+
+    @Test
+    func identicalInputSourcesBlockAutomation() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "same.id",
+                    voiceInputSourceID: "same.id"
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "same.id", displayName: "Same", isSelected: true),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown))
+        )
+
+        try model.load()
+
+        #expect(!model.canRun)
+        #expect(model.configurationIssues.contains("Primary IME and Voice IME must be different."))
+        #expect(model.blockingIssue == "Primary IME and Voice IME must be different.")
+    }
+
+    @Test
+    func deniedAccessibilityMakesStatusUnavailable() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .unknown))
+        )
+
+        try model.load()
+
+        #expect(!model.canRun)
+        #expect(model.statusSummary == "Unavailable")
+        #expect(model.blockingIssue?.contains("辅助功能权限") == true)
+    }
+
+    @Test
+    func reenabledValidConfigurationRestoresRunnableState() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "primary.id",
+                    voiceInputSourceID: "voice.id",
+                    isEnabled: false
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown))
+        )
+
+        try model.load()
+        #expect(model.statusSummary == "Disabled")
+
+        model.isEnabled = true
+
+        #expect(model.canRun)
+        #expect(model.blockingIssue == nil)
+        #expect(model.statusSummary == "Typing")
     }
 }
 

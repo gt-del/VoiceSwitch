@@ -8,8 +8,9 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     func loadStartsKeyboardService() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
-            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
             keyboardEventService: service
@@ -22,11 +23,36 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
+    func disabledModelDoesNotStartKeyboardService() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice",
+                    isEnabled: false
+                )
+            ),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+
+        #expect(service.startCallCount == 0)
+        #expect(model.statusSummary == "Disabled")
+    }
+
+    @Test
     func keyboardEventIsMappedIntoEngineTransitionAndLogsFullChain() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
-            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubKeyboardEngineBridge(
                 result: EngineTransitionResult(
@@ -63,21 +89,22 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     func permissionDegradePathIsLoggedWithoutEngineTransition() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
-            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .unknown)),
             engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
             keyboardEventService: service
         )
 
         try model.load()
-        service.emit(.listenerInactive(reason: "Accessibility permission denied"))
+        model.handleKeyboardEvent(.listenerInactive(reason: "Accessibility permission denied"))
 
         #expect(model.eventTapStatus == .stopped)
         #expect(model.lastRawKeyboardEventSummary == "listenerInactive(reason:Accessibility permission denied)")
         #expect(model.lastInputBehavior == nil)
         #expect(model.logEntries.contains { $0.contains("listenerInactive(reason:Accessibility permission denied)") })
-        #expect(model.keyboardMonitoringErrorMessage == "listenerInactive(reason:Accessibility permission denied)")
+        #expect(model.keyboardMonitoringErrorMessage?.contains("Accessibility permission denied") == true)
     }
 
     @Test
@@ -87,8 +114,9 @@ struct VoiceSwitchAppModelKeyboardEventTests {
             current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .unknown)
         )
         let model = VoiceSwitchAppModel(
-            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: permissions,
             engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
             keyboardEventService: service
@@ -111,8 +139,9 @@ struct VoiceSwitchAppModelKeyboardEventTests {
             current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)
         )
         let model = VoiceSwitchAppModel(
-            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: permissions,
             engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
             keyboardEventService: service
@@ -131,8 +160,9 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     func realKeyboardEventClearsStalePermissionError() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
-            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
-            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubKeyboardEngineBridge(
                 result: EngineTransitionResult(
@@ -160,6 +190,20 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 }
 
+private extension VoiceSwitchSettings {
+    static let configured = VoiceSwitchSettings(
+        primaryInputSourceID: "com.apple.keylayout.ABC",
+        voiceInputSourceID: "com.example.voice"
+    )
+}
+
+private extension [InputSourceDescriptor] {
+    static let configuredSources = [
+        InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+        InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+    ]
+}
+
 private final class StubKeyboardEventService: KeyboardEventListening, @unchecked Sendable {
     private var handler: ((KeyboardEventSummary) -> Void)?
     private(set) var startCallCount = 0
@@ -184,6 +228,20 @@ private final class StubKeyboardEventService: KeyboardEventListening, @unchecked
         }
         handler?(summary)
     }
+}
+
+private final class StubKeyboardInputSourceSwitchingService: InputSourceSwitching, @unchecked Sendable {
+    let currentInputSourceID: String?
+
+    init(currentInputSourceID: String?) {
+        self.currentInputSourceID = currentInputSourceID
+    }
+
+    func currentSelectedInputSourceID() throws -> String? {
+        currentInputSourceID
+    }
+
+    func switchToInputSource(id: String) throws {}
 }
 
 private struct StubKeyboardEngineBridge: EngineBridging {

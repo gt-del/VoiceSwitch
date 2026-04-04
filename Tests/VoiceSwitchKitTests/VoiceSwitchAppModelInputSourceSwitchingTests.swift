@@ -212,8 +212,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.sendTestEvent(.optionPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
-        #expect(model.logEntries.contains { $0.contains("switch_result=skipped") })
-        #expect(model.logEntries.contains { $0.contains("reason=voice_input_source_not_configured") })
+        #expect(model.statusSummary == "Unavailable")
+        #expect(model.logEntries.contains { $0.contains("reason=automation_unavailable") })
     }
 
     @Test

@@ -1,6 +1,6 @@
 # VoiceSwitch
 
-VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。当前版本围绕一个最小可用闭环构建：
+VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前版本围绕一个最小可用闭环构建：
 
 - 默认保持用户配置的 `Primary IME`
 - 按住 `Option` 切换到 `Voice IME`
@@ -11,7 +11,8 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 
 ## 当前已支持能力
 
-- 菜单栏应用、设置页、日志面板
+- 主窗口 Dashboard / Settings / Logs
+- 菜单栏状态入口、打开主窗口、快速启停、重试、退出
 - 系统输入法列表读取与 Primary / Voice IME 配置保存
 - Rust core 最小状态机
 - Swift -> Rust FFI bridge
@@ -20,6 +21,19 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 - 输入法真实切换
 - 用户手动切换检测与真实 cooldown
 - Launch at Login 接入 `SMAppService.mainApp`
+
+## 当前产品结构
+
+- 启动应用后直接显示主窗口，可在窗口内完成主要配置
+- `Dashboard` 展示当前状态、权限、监听状态、当前 IME 和最近动作
+- `Settings` 负责 Input Sources、Behavior、Permissions & System 配置
+- `Logs` 展示最近日志、原始事件与调试按钮
+- 菜单栏只保留：
+  - `Open VoiceSwitch`
+  - `Status`
+  - `Enable / Disable`
+  - `Retry Monitoring`
+  - `Quit`
 
 ## 当前状态机
 
@@ -69,10 +83,11 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 
 ## 设置项
 
-当前设置页暴露以下参数，保存后会持久化；新事件会立即使用新配置：
+当前主窗口设置页暴露以下参数，保存后会持久化；新事件会立即使用新配置：
 
 - `Primary IME`
 - `Voice IME`
+- `Enable VoiceSwitch`
 - `Launch at Login`
 - `Voice Activation Delay`
 - `Release Return Delay`
@@ -122,7 +137,7 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 - `Sources/VoiceSwitchFFI/`
   - C shim、公开头文件、module map
 - `Sources/VoiceSwitchApp/`
-  - 菜单栏 UI、设置页、日志面板
+  - 主窗口、菜单栏入口、设置页、日志页
 
 ## 构建与测试
 
@@ -166,6 +181,7 @@ swift run VoiceSwitchApp
 
 - Event Tap 和输入法切换都依赖系统权限与系统输入源状态
 - `Launch at Login` 可能返回 `requiresApproval`，需要用户在系统登录项中确认
+- 主窗口负责主要错误提示；日志页用于排查，不再作为主配置入口
 - 当前日志仍以结构化字符串形式展示，尚未落成持久化 schema
 
 ## 文档
