@@ -76,7 +76,7 @@ struct VoiceSwitchAppModelCooldownTests {
         observationService.emit(.changed(inputSourceID: "com.example.voice", rawDescription: "inputSourceChanged(id:com.example.voice)"))
 
         #expect(model.lastInputBehavior == .controlPressed)
-        #expect(model.currentEngineState == .voiceHeld)
+        #expect(model.currentEngineState == .voiceMode)
         #expect(!model.isCooldownActive)
         #expect(scheduler.scheduleCallCount == 0)
         #expect(model.logEntries.contains { $0.contains("origin=programmatic") })
@@ -242,23 +242,23 @@ private struct RuleBasedCooldownEngineBridge: EngineBridging {
         switch (currentState, event) {
         case (.idlePrimary, .controlPressed):
             return EngineTransitionResult(
-                state: .voiceHeld,
+                state: .voiceMode,
                 action: .switchToVoice,
                 diagnostic: DiagnosticEntry(
                     trigger: "controlPressed",
                     reason: "pressed_control_switch_to_voice",
                     sourceState: .idlePrimary,
-                    targetState: .voiceHeld
+                    targetState: .voiceMode
                 )
             )
-        case (.voiceHeld, .controlReleased):
+        case (.voiceMode, .controlPressed):
             return EngineTransitionResult(
                 state: .idlePrimary,
                 action: .switchToPrimary,
                 diagnostic: DiagnosticEntry(
-                    trigger: "controlReleased",
-                    reason: "released_control_switch_to_primary",
-                    sourceState: .voiceHeld,
+                    trigger: "controlPressed",
+                    reason: "pressed_control_switch_to_primary",
+                    sourceState: .voiceMode,
                     targetState: .idlePrimary
                 )
             )

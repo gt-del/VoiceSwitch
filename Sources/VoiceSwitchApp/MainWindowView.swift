@@ -188,7 +188,7 @@ private struct DashboardSection: View {
         if model.blockingReason != nil {
             return "当前不可用。请先处理权限、配置或监听问题，再继续使用自动切换。"
         }
-        return "默认保持 Primary IME，轻按一次左 Control 切到 Voice IME，再按一次左 Control 切回。"
+        return "默认保持 Primary IME，第一次按左 Control 切到 Voice IME，第二次按左 Control 切回。"
     }
 
     private var nextStepText: String? {

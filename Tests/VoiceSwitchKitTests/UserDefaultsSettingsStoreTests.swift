@@ -17,7 +17,7 @@ struct UserDefaultsSettingsStoreTests {
             isEnabled: false,
             launchAtLoginEnabled: true,
             voiceActivationDelay: 0.25,
-            releaseReturnDelay: 0.1,
+            primaryReturnDelay: 0.1,
             cooldownDuration: 7,
         )
 
@@ -40,7 +40,7 @@ struct UserDefaultsSettingsStoreTests {
 
         #expect(actual.isEnabled)
         #expect(actual.voiceActivationDelay == 0)
-        #expect(actual.releaseReturnDelay == 0)
+        #expect(actual.primaryReturnDelay == 0)
     }
 
     @Test
@@ -49,14 +49,14 @@ struct UserDefaultsSettingsStoreTests {
         let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
         defaults.removePersistentDomain(forName: legacyDomain)
-        defaults.set(0.18, forKey: "voiceSwitch.optionPendingWindow")
-        defaults.set(0.1, forKey: "voiceSwitch.voiceExitDelay")
+        defaults.set(0.18, forKey: "voiceSwitch.voiceActivationDelay")
+        defaults.set(0.1, forKey: "voiceSwitch.primaryReturnDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         let actual = store.load()
 
         #expect(actual.voiceActivationDelay == 0.18)
-        #expect(actual.releaseReturnDelay == 0.1)
+        #expect(actual.primaryReturnDelay == 0.1)
     }
 
     @Test
@@ -65,14 +65,14 @@ struct UserDefaultsSettingsStoreTests {
         let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
         defaults.removePersistentDomain(forName: legacyDomain)
-        defaults.set(0.8, forKey: "voiceSwitch.releaseReturnDelay")
-        defaults.set(0.6, forKey: "voiceSwitch.optionPendingWindow")
+        defaults.set(0.8, forKey: "voiceSwitch.primaryReturnDelay")
+        defaults.set(0.6, forKey: "voiceSwitch.voiceActivationDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         let actual = store.load()
 
         #expect(actual.voiceActivationDelay == 0)
-        #expect(actual.releaseReturnDelay == 0)
+        #expect(actual.primaryReturnDelay == 0)
     }
 
     @Test
@@ -85,8 +85,8 @@ struct UserDefaultsSettingsStoreTests {
             [
                 "voiceSwitch.primaryInputSourceID": "im.rime.inputmethod.Squirrel.Hans",
                 "voiceSwitch.voiceInputSourceID": "com.bytedance.inputmethod.doubaoime.pinyin",
-                "voiceSwitch.optionPendingWindow": 0.18,
-                "voiceSwitch.voiceExitDelay": 0.8,
+                "voiceSwitch.voiceActivationDelay": 0.18,
+                "voiceSwitch.primaryReturnDelay": 0.8,
             ],
             forName: legacyDomain
         )
@@ -100,7 +100,7 @@ struct UserDefaultsSettingsStoreTests {
         #expect(actual.primaryInputSourceID == "im.rime.inputmethod.Squirrel.Hans")
         #expect(actual.voiceInputSourceID == "com.bytedance.inputmethod.doubaoime.pinyin")
         #expect(actual.voiceActivationDelay == 0.18)
-        #expect(actual.releaseReturnDelay == 0)
+        #expect(actual.primaryReturnDelay == 0)
         #expect(defaults.persistentDomain(forName: legacyDomain) == nil)
     }
 
@@ -110,8 +110,7 @@ struct UserDefaultsSettingsStoreTests {
         let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
         defaults.removePersistentDomain(forName: legacyDomain)
-        defaults.set(0.18, forKey: "voiceSwitch.optionPendingWindow")
-        defaults.set(0.8, forKey: "voiceSwitch.voiceExitDelay")
+        defaults.set(0.8, forKey: "voiceSwitch.primaryReturnDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         try store.save(
@@ -119,13 +118,12 @@ struct UserDefaultsSettingsStoreTests {
                 primaryInputSourceID: "im.rime.inputmethod.Squirrel.Hans",
                 voiceInputSourceID: "com.bytedance.inputmethod.doubaoime.pinyin",
                 voiceActivationDelay: 0,
-                releaseReturnDelay: 0,
+                primaryReturnDelay: 0,
                 cooldownDuration: 5
             )
         )
 
-        #expect(defaults.object(forKey: "voiceSwitch.optionPendingWindow") == nil)
-        #expect(defaults.object(forKey: "voiceSwitch.voiceExitDelay") == nil)
+        #expect(defaults.object(forKey: "voiceSwitch.primaryReturnDelay") != nil)
     }
 
     @Test

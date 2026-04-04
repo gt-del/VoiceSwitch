@@ -17,14 +17,16 @@ struct KeyboardEventTapServiceTests {
     }
 
     @Test
-    func leftControlFlagsChangedWithoutMaskControlIsIgnored() {
+    func leftControlFlagsChangedWithoutMaskControlMapsToControlReleasedBehavior() {
         let summary = KeyboardEventTapService.summary(
             for: .flagsChanged,
             keyCode: 59,
             flags: []
         )
 
-        #expect(summary == nil)
+        #expect(summary == .controlReleased(keyCode: 59))
+        #expect(summary?.mappedBehavior == .controlReleased)
+        #expect(summary?.rawDescription == "controlUp(keyCode:59)")
     }
 
     @Test

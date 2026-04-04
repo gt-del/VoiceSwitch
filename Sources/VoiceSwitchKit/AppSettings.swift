@@ -6,7 +6,7 @@ public struct VoiceSwitchSettings: Equatable, Sendable {
     public var isEnabled: Bool
     public var launchAtLoginEnabled: Bool
     public var voiceActivationDelay: TimeInterval
-    public var releaseReturnDelay: TimeInterval
+    public var primaryReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
 
     public init(
@@ -15,7 +15,7 @@ public struct VoiceSwitchSettings: Equatable, Sendable {
         isEnabled: Bool = true,
         launchAtLoginEnabled: Bool = false,
         voiceActivationDelay: TimeInterval = 0,
-        releaseReturnDelay: TimeInterval = 0,
+        primaryReturnDelay: TimeInterval = 0,
         cooldownDuration: TimeInterval = 5
     ) {
         self.primaryInputSourceID = primaryInputSourceID
@@ -23,7 +23,7 @@ public struct VoiceSwitchSettings: Equatable, Sendable {
         self.isEnabled = isEnabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
         self.voiceActivationDelay = voiceActivationDelay
-        self.releaseReturnDelay = releaseReturnDelay
+        self.primaryReturnDelay = primaryReturnDelay
         self.cooldownDuration = cooldownDuration
     }
 }

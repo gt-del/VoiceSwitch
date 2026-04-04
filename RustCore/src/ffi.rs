@@ -11,7 +11,7 @@ use std::os::raw::c_char;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VSState {
     IdlePrimary = 0,
-    VoiceHeld = 1,
+    VoiceMode = 1,
     Cooldown = 2,
 }
 
@@ -43,7 +43,7 @@ pub enum VSAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VSTimerKind {
     VoiceActivationDelay = 0,
-    ReleaseReturnDelay = 1,
+    PrimaryReturnDelay = 1,
     Cooldown = 2,
 }
 
@@ -60,7 +60,7 @@ pub enum VSErrorCode {
 #[derive(Debug, Clone, Copy)]
 pub struct VSConfiguration {
     pub voice_activation_delay: f64,
-    pub release_return_delay: f64,
+    pub primary_return_delay: f64,
     pub cooldown_duration: f64,
     pub allow_letters: bool,
     pub allow_numbers: bool,
@@ -205,7 +205,7 @@ fn build_configuration(configuration: VSConfiguration) -> EngineConfiguration {
 
     EngineConfiguration {
         voice_activation_delay: configuration.voice_activation_delay,
-        release_return_delay: configuration.release_return_delay,
+        primary_return_delay: configuration.primary_return_delay,
         cooldown_duration: configuration.cooldown_duration,
         typing_key_whitelist,
     }
@@ -215,7 +215,7 @@ impl From<VSState> for EngineState {
     fn from(value: VSState) -> Self {
         match value {
             VSState::IdlePrimary => Self::IdlePrimary,
-            VSState::VoiceHeld => Self::VoiceHeld,
+            VSState::VoiceMode => Self::VoiceMode,
             VSState::Cooldown => Self::Cooldown,
         }
     }
@@ -225,7 +225,7 @@ impl From<EngineState> for VSState {
     fn from(value: EngineState) -> Self {
         match value {
             EngineState::IdlePrimary => Self::IdlePrimary,
-            EngineState::VoiceHeld => Self::VoiceHeld,
+            EngineState::VoiceMode => Self::VoiceMode,
             EngineState::Cooldown => Self::Cooldown,
         }
     }
@@ -273,7 +273,7 @@ impl From<EngineTimerKind> for VSTimerKind {
     fn from(value: EngineTimerKind) -> Self {
         match value {
             EngineTimerKind::VoiceActivationDelay => Self::VoiceActivationDelay,
-            EngineTimerKind::ReleaseReturnDelay => Self::ReleaseReturnDelay,
+            EngineTimerKind::PrimaryReturnDelay => Self::PrimaryReturnDelay,
             EngineTimerKind::Cooldown => Self::Cooldown,
         }
     }

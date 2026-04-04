@@ -7,7 +7,7 @@ struct RustEngineBridgeTests {
     func bridgeDecodesTransitionResult() throws {
         let runner = StubRustCommandRunner(
             output: """
-            {"state":"voiceHeld","action":"switchToVoice","diagnostic":{"trigger":"controlPressed","reason":"pressed_control_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceHeld"},"timer":{"kind":"voiceActivationDelay","delaySeconds":0.05}}
+            {"state":"voiceMode","action":"switchToVoice","diagnostic":{"trigger":"controlPressed","reason":"pressed_control_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceMode"},"timer":{"kind":"voiceActivationDelay","delaySeconds":0.05}}
             """.data(using: .utf8)!
         )
 
@@ -18,12 +18,12 @@ struct RustEngineBridgeTests {
             configuration: EngineConfiguration()
         )
 
-        #expect(result.state == .voiceHeld)
+        #expect(result.state == .voiceMode)
         #expect(result.action == .switchToVoice)
         #expect(result.diagnostic.trigger == "controlPressed")
         #expect(result.diagnostic.reason == "pressed_control_switch_to_voice")
         #expect(result.diagnostic.sourceState == .idlePrimary)
-        #expect(result.diagnostic.targetState == .voiceHeld)
+        #expect(result.diagnostic.targetState == .voiceMode)
         #expect(result.timer?.kind == .voiceActivationDelay)
         #expect(result.timer?.delaySeconds == 0.05)
     }
@@ -32,7 +32,7 @@ struct RustEngineBridgeTests {
     func bridgePassesConfigurationToRunner() throws {
         let runner = RecordingRustCommandRunner(
             output: """
-            {"state":"voiceHeld","action":"switchToVoice","diagnostic":{"trigger":"controlPressed","reason":"pressed_control_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceHeld"}}
+            {"state":"voiceMode","action":"switchToVoice","diagnostic":{"trigger":"controlPressed","reason":"pressed_control_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceMode"}}
             """.data(using: .utf8)!
         )
 
@@ -42,14 +42,14 @@ struct RustEngineBridgeTests {
             event: .controlPressed,
             configuration: EngineConfiguration(
                 voiceActivationDelay: 0.25,
-                releaseReturnDelay: 0.1,
+                primaryReturnDelay: 0.1,
                 cooldownDuration: 7,
                 typingKeyWhitelist: [.letters, .space]
             )
         )
 
         #expect(runner.lastConfiguration?.voiceActivationDelay == 0.25)
-        #expect(runner.lastConfiguration?.releaseReturnDelay == 0.1)
+        #expect(runner.lastConfiguration?.primaryReturnDelay == 0.1)
         #expect(runner.lastConfiguration?.cooldownDuration == 7)
         #expect(runner.lastConfiguration?.typingKeyWhitelist == [.letters, .space])
     }
@@ -67,7 +67,7 @@ struct RustEngineBridgeTests {
         let cliBridge = CLIRustEngineBridge()
         let configuration = EngineConfiguration(
             voiceActivationDelay: 0.05,
-            releaseReturnDelay: 0.03,
+            primaryReturnDelay: 0.03,
             cooldownDuration: 6,
             typingKeyWhitelist: [.letters, .space]
         )
@@ -110,7 +110,7 @@ struct RustEngineBridgeTests {
                 configuration: EngineConfiguration()
             )
 
-            #expect(result.state == .voiceHeld)
+            #expect(result.state == .voiceMode)
             #expect(result.action == .switchToVoice)
             #expect(result.diagnostic.reason == "pressed_control_switch_to_voice")
         }
@@ -126,21 +126,21 @@ struct RustEngineBridgeTests {
             event: .controlPressed,
             configuration: configuration
         )
-        #expect(controlPressed.state == .voiceHeld)
+        #expect(controlPressed.state == .voiceMode)
         #expect(controlPressed.action == .switchToVoice)
         #expect(controlPressed.diagnostic.reason == "pressed_control_switch_to_voice")
 
-        let controlReleased = try bridge.transition(
+        let secondControlPressed = try bridge.transition(
             from: controlPressed.state,
-            event: .controlReleased,
+            event: .controlPressed,
             configuration: configuration
         )
-        #expect(controlReleased.state == .idlePrimary)
-        #expect(controlReleased.action == .switchToPrimary)
-        #expect(controlReleased.diagnostic.reason == "released_control_switch_to_primary")
+        #expect(secondControlPressed.state == .idlePrimary)
+        #expect(secondControlPressed.action == .switchToPrimary)
+        #expect(secondControlPressed.diagnostic.reason == "pressed_control_switch_to_primary")
 
         let manualSwitch = try bridge.transition(
-            from: controlReleased.state,
+            from: secondControlPressed.state,
             event: .manualSwitchDetected,
             configuration: configuration
         )

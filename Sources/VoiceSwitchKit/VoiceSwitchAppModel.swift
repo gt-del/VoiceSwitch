@@ -24,7 +24,7 @@ public final class VoiceSwitchAppModel {
     public var isEnabled: Bool
     public var launchAtLoginEnabled: Bool
     public var voiceActivationDelay: TimeInterval
-    public var releaseReturnDelay: TimeInterval
+    public var primaryReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
     public var logEntries: [String] {
         allLogEntries.map(\.message)
@@ -142,8 +142,8 @@ public final class VoiceSwitchAppModel {
         switch currentEngineState {
         case .idlePrimary:
             return "默认输入"
-        case .voiceHeld:
-            return "语音按住"
+        case .voiceMode:
+            return "语音模式"
         case .cooldown:
             return "冷却中"
         }
@@ -229,7 +229,7 @@ public final class VoiceSwitchAppModel {
     private let engineBridge: any EngineBridging
     private let keyboardEventService: KeyboardEventListening?
     private let voiceActivationScheduler: CooldownScheduling
-    private let releaseReturnScheduler: CooldownScheduling
+    private let primaryReturnScheduler: CooldownScheduling
     private let cooldownScheduler: CooldownScheduling
     private let nowProvider: @Sendable () -> Date
     private var pendingSettingsSaveTask: Task<Void, Never>?
@@ -248,7 +248,7 @@ public final class VoiceSwitchAppModel {
         engineBridge: any EngineBridging = RustEngineBridge(),
         keyboardEventService: KeyboardEventListening? = nil,
         voiceActivationScheduler: CooldownScheduling = CooldownScheduler(),
-        releaseReturnScheduler: CooldownScheduling = CooldownScheduler(),
+        primaryReturnScheduler: CooldownScheduling = CooldownScheduler(),
         cooldownScheduler: CooldownScheduling = CooldownScheduler(),
         nowProvider: @escaping @Sendable () -> Date = Date.init
     ) {
@@ -261,7 +261,7 @@ public final class VoiceSwitchAppModel {
         self.engineBridge = engineBridge
         self.keyboardEventService = keyboardEventService
         self.voiceActivationScheduler = voiceActivationScheduler
-        self.releaseReturnScheduler = releaseReturnScheduler
+        self.primaryReturnScheduler = primaryReturnScheduler
         self.cooldownScheduler = cooldownScheduler
         self.nowProvider = nowProvider
         self.availableInputSources = []
@@ -283,7 +283,7 @@ public final class VoiceSwitchAppModel {
         self.isEnabled = true
         self.launchAtLoginEnabled = false
         self.voiceActivationDelay = EngineConfiguration().voiceActivationDelay
-        self.releaseReturnDelay = EngineConfiguration().releaseReturnDelay
+        self.primaryReturnDelay = EngineConfiguration().primaryReturnDelay
         self.cooldownDuration = EngineConfiguration().cooldownDuration
         self.isInputObservationActive = false
         self.unavailablePrimaryIssue = nil
@@ -337,7 +337,7 @@ public final class VoiceSwitchAppModel {
             )
         }
         voiceActivationDelay = settings.voiceActivationDelay
-        releaseReturnDelay = settings.releaseReturnDelay
+        primaryReturnDelay = settings.primaryReturnDelay
         cooldownDuration = settings.cooldownDuration
         settingsSaveStatusMessage = nil
 
@@ -383,7 +383,7 @@ public final class VoiceSwitchAppModel {
             keyboardMonitoringErrorMessage = nil
             lastRawKeyboardEventSummary = nil
             voiceActivationScheduler.cancel()
-            releaseReturnScheduler.cancel()
+            primaryReturnScheduler.cancel()
             cooldownScheduler.cancel()
         }
         updateAutomationState()
@@ -413,11 +413,11 @@ public final class VoiceSwitchAppModel {
         scheduleAutoSave()
     }
 
-    public func updateReleaseReturnDelay(_ delay: TimeInterval) {
-        guard releaseReturnDelay != delay else {
+    public func updatePrimaryReturnDelay(_ delay: TimeInterval) {
+        guard primaryReturnDelay != delay else {
             return
         }
-        releaseReturnDelay = delay
+        primaryReturnDelay = delay
         settingsSaveStatusMessage = nil
         scheduleAutoSave()
     }
@@ -502,7 +502,7 @@ public final class VoiceSwitchAppModel {
 
         appendLog(.diagnostic, "Keyboard raw=\(summary.rawDescription)")
 
-        guard let mappedBehavior = mappedKeyboardBehavior(for: summary) else {
+        guard let mappedBehavior = summary.mappedBehavior else {
             return
         }
 
@@ -512,17 +512,6 @@ public final class VoiceSwitchAppModel {
             appendLog(.diagnostic,
                 "Keyboard raw=\(summary.rawDescription) event=\(mappedBehavior.rawValue) failed error=\(String(describing: error))"
             )
-        }
-    }
-
-    private func mappedKeyboardBehavior(for summary: KeyboardEventSummary) -> InputBehavior? {
-        switch summary {
-        case let .controlPressed(keyCode) where keyCode == 59:
-            return currentEngineState == .voiceHeld ? .controlReleased : .controlPressed
-        case let .controlReleased(keyCode) where keyCode == 59:
-            return nil
-        default:
-            return summary.mappedBehavior
         }
     }
 
@@ -745,7 +734,7 @@ public final class VoiceSwitchAppModel {
     private var engineConfiguration: EngineConfiguration {
         EngineConfiguration(
             voiceActivationDelay: voiceActivationDelay,
-            releaseReturnDelay: releaseReturnDelay,
+            primaryReturnDelay: primaryReturnDelay,
             cooldownDuration: cooldownDuration,
             typingKeyWhitelist: EngineConfiguration().typingKeyWhitelist
         )
@@ -864,8 +853,8 @@ public final class VoiceSwitchAppModel {
         if result.timer?.kind != .voiceActivationDelay {
             voiceActivationScheduler.cancel()
         }
-        if result.timer?.kind != .releaseReturnDelay {
-            releaseReturnScheduler.cancel()
+        if result.timer?.kind != .primaryReturnDelay {
+            primaryReturnScheduler.cancel()
         }
         if result.timer?.kind != .cooldown && result.state != .cooldown {
             cooldownScheduler.cancel()
@@ -878,7 +867,7 @@ public final class VoiceSwitchAppModel {
         switch timer.kind {
         case .voiceActivationDelay:
             break
-        case .releaseReturnDelay:
+        case .primaryReturnDelay:
             break
         case .cooldown:
             scheduleCooldown(delay: timer.delaySeconds)
@@ -914,8 +903,8 @@ public final class VoiceSwitchAppModel {
         switch timerKind {
         case .voiceActivationDelay:
             return voiceActivationScheduler
-        case .releaseReturnDelay:
-            return releaseReturnScheduler
+        case .primaryReturnDelay:
+            return primaryReturnScheduler
         case .cooldown:
             return cooldownScheduler
         }
@@ -925,8 +914,8 @@ public final class VoiceSwitchAppModel {
         switch timerKind {
         case .voiceActivationDelay:
             return "controlPressed"
-        case .releaseReturnDelay:
-            return "controlReleased"
+        case .primaryReturnDelay:
+            return "controlPressed"
         case .cooldown:
             return "manualSwitchDetected"
         }
@@ -936,8 +925,8 @@ public final class VoiceSwitchAppModel {
         switch timerKind {
         case .voiceActivationDelay:
             return "voice_activation_delay_started"
-        case .releaseReturnDelay:
-            return "release_return_delay_started"
+        case .primaryReturnDelay:
+            return "primary_return_delay_started"
         case .cooldown:
             return "cooldown_started"
         }
@@ -981,7 +970,7 @@ public final class VoiceSwitchAppModel {
             isEnabled: isEnabled,
             launchAtLoginEnabled: launchAtLoginEnabled,
             voiceActivationDelay: voiceActivationDelay,
-            releaseReturnDelay: releaseReturnDelay,
+            primaryReturnDelay: primaryReturnDelay,
             cooldownDuration: cooldownDuration
         )
     }

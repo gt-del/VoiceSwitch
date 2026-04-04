@@ -5,7 +5,7 @@ use thiserror::Error;
 #[serde(rename_all = "camelCase")]
 pub struct EngineConfiguration {
     pub voice_activation_delay: f64,
-    pub release_return_delay: f64,
+    pub primary_return_delay: f64,
     pub cooldown_duration: f64,
     pub typing_key_whitelist: Vec<TypingKeyCategory>,
 }
@@ -14,7 +14,7 @@ impl Default for EngineConfiguration {
     fn default() -> Self {
         Self {
             voice_activation_delay: 0.0,
-            release_return_delay: 0.0,
+            primary_return_delay: 0.0,
             cooldown_duration: 5.0,
             typing_key_whitelist: vec![
                 TypingKeyCategory::Letters,
@@ -36,10 +36,10 @@ impl EngineConfiguration {
             "voiceActivationDelay",
         )?;
         validate_duration(
-            self.release_return_delay,
+            self.primary_return_delay,
             0.0,
             0.3,
-            "releaseReturnDelay",
+            "primaryReturnDelay",
         )?;
         validate_duration(self.cooldown_duration, 0.5, 30.0, "cooldownDuration")?;
 

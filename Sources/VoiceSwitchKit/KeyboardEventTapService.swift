@@ -36,15 +36,9 @@ public enum KeyboardEventSummary: Equatable, Sendable {
     public var rawDescription: String {
         switch self {
         case let .controlPressed(keyCode):
-            if keyCode == 59 {
-                return "controlDown(keyCode:\(keyCode))"
-            }
-            return "optionDown(keyCode:\(keyCode))"
+            return "controlDown(keyCode:\(keyCode))"
         case let .controlReleased(keyCode):
-            if keyCode == 59 {
-                return "controlUp(keyCode:\(keyCode))"
-            }
-            return "optionUp(keyCode:\(keyCode))"
+            return "controlUp(keyCode:\(keyCode))"
         case let .typingKey(keyCode, category):
             return "typingKey(keyCode:\(keyCode),category:\(category.rawValue))"
         case let .tapDisabled(reason):
@@ -177,10 +171,10 @@ public final class KeyboardEventTapService: KeyboardEventListening {
             guard isLeftControlKey(keyCode) else {
                 return nil
             }
-            guard flags.contains(.maskControl) else {
-                return nil
+            if flags.contains(.maskControl) {
+                return .controlPressed(keyCode: Int(keyCode))
             }
-            return .controlPressed(keyCode: Int(keyCode))
+            return .controlReleased(keyCode: Int(keyCode))
         case .keyDown:
             guard let category = typingKeyCategory(for: keyCode) else {
                 return nil

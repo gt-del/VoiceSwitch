@@ -21,31 +21,31 @@ pub fn transition(
 ) -> EngineTransition {
     match (current, event) {
         (EngineState::IdlePrimary, InputBehavior::ControlPressed) => EngineTransition {
-            state: EngineState::VoiceHeld,
+            state: EngineState::VoiceMode,
             action: EngineAction::SwitchToVoice,
             diagnostic: DiagnosticEntry::new(
                 "controlPressed",
                 "pressed_control_switch_to_voice",
                 EngineState::IdlePrimary,
-                EngineState::VoiceHeld,
+                EngineState::VoiceMode,
             ),
             timer: optional_debounce_timer(
                 EngineTimerKind::VoiceActivationDelay,
                 configuration.voice_activation_delay,
             ),
         },
-        (EngineState::VoiceHeld, InputBehavior::ControlReleased) => EngineTransition {
+        (EngineState::VoiceMode, InputBehavior::ControlPressed) => EngineTransition {
             state: EngineState::IdlePrimary,
             action: EngineAction::SwitchToPrimary,
             diagnostic: DiagnosticEntry::new(
-                "controlReleased",
-                "released_control_switch_to_primary",
-                EngineState::VoiceHeld,
+                "controlPressed",
+                "pressed_control_switch_to_primary",
+                EngineState::VoiceMode,
                 EngineState::IdlePrimary,
             ),
             timer: optional_debounce_timer(
-                EngineTimerKind::ReleaseReturnDelay,
-                configuration.release_return_delay,
+                EngineTimerKind::PrimaryReturnDelay,
+                configuration.primary_return_delay,
             ),
         },
         (_, InputBehavior::ManualSwitchDetected) => EngineTransition {
@@ -74,17 +74,17 @@ pub fn transition(
             timer: None,
         },
         (EngineState::IdlePrimary, InputBehavior::TypingDetected)
-        | (EngineState::VoiceHeld, InputBehavior::TypingDetected)
+        | (EngineState::VoiceMode, InputBehavior::TypingDetected)
         | (EngineState::IdlePrimary, InputBehavior::TypingKeyLetters)
         | (EngineState::IdlePrimary, InputBehavior::TypingKeyNumbers)
         | (EngineState::IdlePrimary, InputBehavior::TypingKeySpace)
         | (EngineState::IdlePrimary, InputBehavior::TypingKeyDelete)
         | (EngineState::IdlePrimary, InputBehavior::TypingKeyReturnKey)
-        | (EngineState::VoiceHeld, InputBehavior::TypingKeyLetters)
-        | (EngineState::VoiceHeld, InputBehavior::TypingKeyNumbers)
-        | (EngineState::VoiceHeld, InputBehavior::TypingKeySpace)
-        | (EngineState::VoiceHeld, InputBehavior::TypingKeyDelete)
-        | (EngineState::VoiceHeld, InputBehavior::TypingKeyReturnKey)
+        | (EngineState::VoiceMode, InputBehavior::TypingKeyLetters)
+        | (EngineState::VoiceMode, InputBehavior::TypingKeyNumbers)
+        | (EngineState::VoiceMode, InputBehavior::TypingKeySpace)
+        | (EngineState::VoiceMode, InputBehavior::TypingKeyDelete)
+        | (EngineState::VoiceMode, InputBehavior::TypingKeyReturnKey)
         | (EngineState::Cooldown, InputBehavior::ControlPressed)
         | (EngineState::Cooldown, InputBehavior::ControlReleased) => EngineTransition {
             state: current,

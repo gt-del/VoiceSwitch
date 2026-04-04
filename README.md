@@ -3,8 +3,8 @@
 VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
 
 - 默认保持用户配置的 `Primary IME`
-- 轻按一次左 `Control` 切换到 `Voice IME`
-- 再按一次左 `Control` 切回 `Primary IME`
+- 第一次按下左 `Control` 切换到 `Voice IME`
+- 第二次按下左 `Control` 切回 `Primary IME`
 - 用户手动切换输入法后进入 `cooldown`
 
 当前版本为 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
@@ -54,7 +54,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 当前实现只保留 3 个状态：
 
 - `idlePrimary`
-- `voiceHeld`
+- `voiceMode`
 - `cooldown`
 
 当前实现只保留 4 个动作：
@@ -68,12 +68,6 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 - `controlPressed`
 - `controlReleased`
-- `typingDetected`
-- `typingKeyLetters`
-- `typingKeyNumbers`
-- `typingKeySpace`
-- `typingKeyDelete`
-- `typingKeyReturnKey`
 - `manualSwitchDetected`
 - `cooldownExpired`
 
@@ -81,18 +75,18 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 核心闭环如下：
 
-1. 第一次轻按左 `Control` 后触发 `idlePrimary + controlPressed -> voiceHeld + switchToVoice`
-2. 第二次轻按左 `Control` 后触发 `voiceHeld + controlReleased -> idlePrimary + switchToPrimary`
+1. 第一次按下左 `Control` 后触发 `idlePrimary + controlPressed -> voiceMode + switchToVoice`
+2. 第二次按下左 `Control` 后触发 `voiceMode + controlPressed -> idlePrimary + switchToPrimary`
 3. `* + manualSwitchDetected -> cooldown + enterCooldown`
-4. `cooldown + cooldownExpired -> idlePrimary`
+4. `cooldown + cooldownExpired -> idlePrimary + noOp`
 
 补充规则：
 
-- `voiceActivationDelay`、`releaseReturnDelay`、`cooldownDuration` 由 Rust core 配置驱动
-- `voiceActivationDelay` 和 `releaseReturnDelay` 只用于轻微防抖，不改变主状态机语义
+- `voiceActivationDelay`、`primaryReturnDelay`、`cooldownDuration` 由 Rust core 配置驱动
+- `voiceActivationDelay` 和 `primaryReturnDelay` 只用于轻微防抖，不改变主状态机语义
 - Swift 负责执行 Rust 返回的动作，并在需要时调度轻微延迟 timer
-- `typingKeyWhitelist` 定义在 Rust core，Swift 只上传稳定键类别
-- typing 事件保留兼容，但不再决定主路径回切
+- `controlReleased` 只保留为真实松开事件的兼容输入，不驱动主切换
+- typing 事件保留兼容，但不参与主切换路径
 - cooldown 期间自动切换会被抑制，并写入结构化日志
 
 ## 设置项
@@ -103,8 +97,8 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - `Voice IME`
 - `Enable VoiceSwitch`
 - `Launch at Login`
-- `Voice Activation Delay`
-- `Release Return Delay`
+- `切到语音输入法延迟`
+- `切回普通输入法延迟`
 - `Cooldown Duration`
 
 当前参数默认值与合法范围：
@@ -112,10 +106,10 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 | 参数 | 默认值 | 范围 |
 | --- | --- | --- |
 | `voiceActivationDelay` | `0.00s` | `0.0...0.3` |
-| `releaseReturnDelay` | `0.00s` | `0.0...0.3` |
+| `primaryReturnDelay` | `0.00s` | `0.0...0.3` |
 | `cooldownDuration` | `5.0s` | `0.5...30.0` |
 
-`typingKeyWhitelist` 当前仍保留在 Rust 内部配置中，但不在设置页暴露，也不参与主切换逻辑。
+设置页说明统一为：第一次按左 `Control` 切到 `Voice IME`，第二次按左 `Control` 切回 `Primary IME`。
 
 ## 日志字段
 

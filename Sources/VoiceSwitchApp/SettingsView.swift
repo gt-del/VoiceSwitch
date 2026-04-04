@@ -51,7 +51,7 @@ struct SettingsView: View {
         AppCard {
             Text("设置")
                 .font(.title2.weight(.semibold))
-            Text("在这里配置默认输入法、语音输入法，以及轻按左 Control 的切换行为。")
+            Text("在这里配置默认输入法、语音输入法，以及左 Control 双击切换行为。")
                 .foregroundStyle(.secondary)
         }
     }
@@ -107,18 +107,18 @@ private struct BehaviorSection: View {
     var body: some View {
         Section("行为") {
             Stepper(value: voiceActivationDelayBinding, in: 0.0...0.3, step: 0.01) {
-                Text("语音激活延迟：\(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
+                Text("切到语音输入法延迟：\(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
-            Stepper(value: releaseReturnDelayBinding, in: 0.0...0.3, step: 0.01) {
-                Text("松开返回延迟：\(model.releaseReturnDelay, format: .number.precision(.fractionLength(2)))s")
+            Stepper(value: primaryReturnDelayBinding, in: 0.0...0.3, step: 0.01) {
+                Text("切回普通输入法延迟：\(model.primaryReturnDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
             Stepper(value: cooldownDurationBinding, in: 0.5...30.0, step: 0.5) {
                 Text("冷却时长：\(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
             }
 
-            Text("轻按一次左 Control 切到 Voice IME，再按一次左 Control 切回 Primary IME。")
+            Text("第一次按左 Control 切到 Voice IME，第二次按左 Control 切回 Primary IME。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -131,10 +131,10 @@ private struct BehaviorSection: View {
         )
     }
 
-    private var releaseReturnDelayBinding: Binding<TimeInterval> {
+    private var primaryReturnDelayBinding: Binding<TimeInterval> {
         Binding(
-            get: { model.releaseReturnDelay },
-            set: { model.updateReleaseReturnDelay($0) }
+            get: { model.primaryReturnDelay },
+            set: { model.updatePrimaryReturnDelay($0) }
         )
     }
 

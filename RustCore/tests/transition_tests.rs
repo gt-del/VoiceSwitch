@@ -12,16 +12,16 @@ fn primary_transition_matrix_remains_stable() {
         (
             EngineState::IdlePrimary,
             InputBehavior::ControlPressed,
-            EngineState::VoiceHeld,
+            EngineState::VoiceMode,
             EngineAction::SwitchToVoice,
             "pressed_control_switch_to_voice",
         ),
         (
-            EngineState::VoiceHeld,
-            InputBehavior::ControlReleased,
+            EngineState::VoiceMode,
+            InputBehavior::ControlPressed,
             EngineState::IdlePrimary,
             EngineAction::SwitchToPrimary,
-            "released_control_switch_to_primary",
+            "pressed_control_switch_to_primary",
         ),
         (
             EngineState::IdlePrimary,
@@ -58,7 +58,7 @@ fn control_toggle_manual_switch_and_cooldown_sequence_stays_stable() {
         InputBehavior::ControlPressed,
         &configuration,
     );
-    assert_eq!(pressed.state, EngineState::VoiceHeld);
+    assert_eq!(pressed.state, EngineState::VoiceMode);
     assert_eq!(pressed.action, EngineAction::SwitchToVoice);
 
     let manual = transition(
@@ -77,28 +77,28 @@ fn control_toggle_manual_switch_and_cooldown_sequence_stays_stable() {
     assert_eq!(expired.state, EngineState::IdlePrimary);
     assert_eq!(expired.action, EngineAction::NoOp);
 
-    let released_after_cooldown = transition(
+    let pressed_after_cooldown = transition(
         expired.state,
-        InputBehavior::ControlReleased,
+        InputBehavior::ControlPressed,
         &configuration,
     );
-    assert_eq!(released_after_cooldown.state, EngineState::IdlePrimary);
-    assert_eq!(released_after_cooldown.action, EngineAction::NoOp);
+    assert_eq!(pressed_after_cooldown.state, EngineState::VoiceMode);
+    assert_eq!(pressed_after_cooldown.action, EngineAction::SwitchToVoice);
     assert_eq!(
-        released_after_cooldown.diagnostic.reason,
-        "ignored_event_in_current_state"
+        pressed_after_cooldown.diagnostic.reason,
+        "pressed_control_switch_to_voice"
     );
 }
 
 #[test]
-fn control_press_moves_idle_primary_to_voice_held_and_switches_to_voice() {
+fn control_press_moves_idle_primary_to_voice_mode_and_switches_to_voice() {
     let result = transition(
         EngineState::IdlePrimary,
         InputBehavior::ControlPressed,
         &EngineConfiguration::default(),
     );
 
-    assert_eq!(result.state, EngineState::VoiceHeld);
+    assert_eq!(result.state, EngineState::VoiceMode);
     assert_eq!(result.action, EngineAction::SwitchToVoice);
     assert_eq!(result.diagnostic.trigger, "controlPressed");
     assert_eq!(result.diagnostic.reason, "pressed_control_switch_to_voice");
@@ -106,17 +106,32 @@ fn control_press_moves_idle_primary_to_voice_held_and_switches_to_voice() {
 }
 
 #[test]
-fn control_release_moves_voice_held_back_to_idle_primary_and_switches_to_primary() {
+fn second_control_press_moves_voice_mode_back_to_idle_primary_and_switches_to_primary() {
     let result = transition(
-        EngineState::VoiceHeld,
-        InputBehavior::ControlReleased,
+        EngineState::VoiceMode,
+        InputBehavior::ControlPressed,
         &EngineConfiguration::default(),
     );
 
     assert_eq!(result.state, EngineState::IdlePrimary);
     assert_eq!(result.action, EngineAction::SwitchToPrimary);
+    assert_eq!(result.diagnostic.trigger, "controlPressed");
+    assert_eq!(result.diagnostic.reason, "pressed_control_switch_to_primary");
+    assert_eq!(result.timer, None);
+}
+
+#[test]
+fn control_release_does_not_drive_main_toggle_path() {
+    let result = transition(
+        EngineState::VoiceMode,
+        InputBehavior::ControlReleased,
+        &EngineConfiguration::default(),
+    );
+
+    assert_eq!(result.state, EngineState::VoiceMode);
+    assert_eq!(result.action, EngineAction::NoOp);
     assert_eq!(result.diagnostic.trigger, "controlReleased");
-    assert_eq!(result.diagnostic.reason, "released_control_switch_to_primary");
+    assert_eq!(result.diagnostic.reason, "ignored_event_in_current_state");
     assert_eq!(result.timer, None);
 }
 
@@ -127,7 +142,7 @@ fn manual_switch_enters_cooldown_with_configured_timer() {
         ..EngineConfiguration::default()
     };
     let result = transition(
-        EngineState::VoiceHeld,
+        EngineState::VoiceMode,
         InputBehavior::ManualSwitchDetected,
         &configuration,
     );
@@ -162,14 +177,14 @@ fn cooldown_expired_returns_to_idle_primary_without_switch_action() {
 }
 
 #[test]
-fn typing_key_events_do_not_drive_main_path_when_voice_is_held() {
+fn typing_key_events_do_not_drive_main_path_when_voice_mode_is_active() {
     let result = transition(
-        EngineState::VoiceHeld,
+        EngineState::VoiceMode,
         InputBehavior::TypingKeyLetters,
         &EngineConfiguration::default(),
     );
 
-    assert_eq!(result.state, EngineState::VoiceHeld);
+    assert_eq!(result.state, EngineState::VoiceMode);
     assert_eq!(result.action, EngineAction::NoOp);
     assert_eq!(result.diagnostic.reason, "ignored_event_in_current_state");
 }

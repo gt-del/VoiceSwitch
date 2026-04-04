@@ -99,13 +99,13 @@ struct VoiceSwitchAppModelKeyboardEventTests {
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubKeyboardEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     ),
                     timer: EngineTimer(kind: .voiceActivationDelay, delaySeconds: 0.05)
                 )
@@ -117,13 +117,13 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         service.emit(.controlPressed(keyCode: 59))
 
         #expect(model.lastInputBehavior == .controlPressed)
-        #expect(model.currentEngineState == .voiceHeld)
+        #expect(model.currentEngineState == .voiceMode)
         #expect(model.lastEngineAction == .switchToVoice)
         #expect(model.eventTapStatus == .running)
         #expect(model.lastRawKeyboardEventSummary == "controlDown(keyCode:59)")
         #expect(model.logEntries.contains { $0.contains("raw_event=controlDown(keyCode:59)") })
         #expect(model.logEntries.contains { $0.contains("trigger=controlPressed") })
-        #expect(model.logEntries.contains { $0.contains("target_state=voiceHeld") })
+        #expect(model.logEntries.contains { $0.contains("target_state=voiceMode") })
         #expect(model.logEntries.contains { $0.contains("reason=pressed_control_switch_to_voice") })
         #expect(model.logEntries.contains { $0.contains("timer_delay_seconds=0.05") })
     }
@@ -144,9 +144,10 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         service.emit(.controlPressed(keyCode: 59))
         service.emit(.controlReleased(keyCode: 59))
 
-        #expect(model.currentEngineState == .voiceHeld)
-        #expect(model.lastEngineAction == .switchToVoice)
-        #expect(model.lastInputBehavior == .controlPressed)
+        #expect(model.currentEngineState == .voiceMode)
+        #expect(model.lastEngineAction == .noOp)
+        #expect(model.lastInputBehavior == .controlReleased)
+        #expect(model.logEntries.contains { $0.contains("trigger=controlReleased") })
     }
 
     @Test
@@ -167,8 +168,8 @@ struct VoiceSwitchAppModelKeyboardEventTests {
 
         #expect(model.currentEngineState == .idlePrimary)
         #expect(model.lastEngineAction == .switchToPrimary)
-        #expect(model.lastInputBehavior == .controlReleased)
-        #expect(model.logEntries.contains { $0.contains("trigger=controlReleased") })
+        #expect(model.lastInputBehavior == .controlPressed)
+        #expect(model.logEntries.contains { $0.contains("trigger=controlPressed") })
     }
 
     @Test
@@ -438,13 +439,13 @@ struct VoiceSwitchAppModelKeyboardEventTests {
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubKeyboardEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     )
                 )
             ),
@@ -555,24 +556,35 @@ private struct ToggleKeyboardEngineBridge: EngineBridging {
         switch (currentState, event) {
         case (.idlePrimary, .controlPressed):
             return EngineTransitionResult(
-                state: .voiceHeld,
+                state: .voiceMode,
                 action: .switchToVoice,
                 diagnostic: DiagnosticEntry(
                     trigger: "controlPressed",
                     reason: "pressed_control_switch_to_voice",
                     sourceState: .idlePrimary,
-                    targetState: .voiceHeld
+                    targetState: .voiceMode
                 )
             )
-        case (.voiceHeld, .controlReleased):
+        case (.voiceMode, .controlPressed):
             return EngineTransitionResult(
                 state: .idlePrimary,
                 action: .switchToPrimary,
                 diagnostic: DiagnosticEntry(
-                    trigger: "controlReleased",
-                    reason: "released_control_switch_to_primary",
-                    sourceState: .voiceHeld,
+                    trigger: "controlPressed",
+                    reason: "pressed_control_switch_to_primary",
+                    sourceState: .voiceMode,
                     targetState: .idlePrimary
+                )
+            )
+        case (.voiceMode, .controlReleased):
+            return EngineTransitionResult(
+                state: .voiceMode,
+                action: .noOp,
+                diagnostic: DiagnosticEntry(
+                    trigger: "controlReleased",
+                    reason: "ignored_event_in_current_state",
+                    sourceState: .voiceMode,
+                    targetState: .voiceMode
                 )
             )
         default:

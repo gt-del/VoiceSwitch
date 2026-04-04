@@ -23,13 +23,13 @@ struct VoiceSwitchAppModelEngineTests {
             permissionProvider: EngineTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     )
                 )
             )
@@ -38,11 +38,11 @@ struct VoiceSwitchAppModelEngineTests {
         try model.load()
         try model.sendTestEvent(.controlPressed)
 
-        #expect(model.currentEngineState == .voiceHeld)
+        #expect(model.currentEngineState == .voiceMode)
         #expect(model.lastInputBehavior == .controlPressed)
         #expect(model.lastEngineAction == .switchToVoice)
         #expect(model.logEntries.contains { $0.contains("controlPressed") })
-        #expect(model.logEntries.contains { $0.contains("voiceHeld") })
+        #expect(model.logEntries.contains { $0.contains("voiceMode") })
     }
 }
 

@@ -6,7 +6,7 @@
 
 typedef enum {
     VSStateIdlePrimary = 0,
-    VSStateVoiceHeld = 1,
+    VSStateVoiceMode = 1,
     VSStateCooldown = 2,
 } VSState;
 
@@ -32,7 +32,7 @@ typedef enum {
 
 typedef enum {
     VSTimerKindVoiceActivationDelay = 0,
-    VSTimerKindReleaseReturnDelay = 1,
+    VSTimerKindPrimaryReturnDelay = 1,
     VSTimerKindCooldown = 2,
 } VSTimerKind;
 
@@ -45,7 +45,7 @@ typedef enum {
 
 typedef struct {
     double voice_activation_delay;
-    double release_return_delay;
+    double primary_return_delay;
     double cooldown_duration;
     bool allow_letters;
     bool allow_numbers;

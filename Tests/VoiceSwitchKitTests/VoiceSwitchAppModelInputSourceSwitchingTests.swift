@@ -24,13 +24,13 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     )
                 )
             )
@@ -66,13 +66,13 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     ),
                     timer: EngineTimer(kind: .voiceActivationDelay, delaySeconds: 0.05)
                 )
@@ -114,9 +114,9 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .idlePrimary,
                     action: .switchToPrimary,
                     diagnostic: DiagnosticEntry(
-                        trigger: "controlReleased",
-                        reason: "released_control_switch_to_primary",
-                        sourceState: .voiceHeld,
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_primary",
+                        sourceState: .voiceMode,
                         targetState: .idlePrimary
                     )
                 )
@@ -124,7 +124,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.controlReleased)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(switchingService.switchCalls == ["com.apple.keylayout.ABC"])
         #expect(model.logEntries.contains { $0.contains("target_input_source=com.apple.keylayout.ABC") })
@@ -132,7 +132,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
     }
 
     @Test
-    func releaseReturnDelayDefersPrimarySwitchUntilSchedulerFires() throws {
+    func primaryReturnDelayDefersPrimarySwitchUntilSchedulerFires() throws {
         let switchingService = StubInputSourceSwitchingService(currentInputSourceID: "com.example.voice")
         let scheduler = StubActionScheduler()
         let model = VoiceSwitchAppModel(
@@ -155,19 +155,19 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .idlePrimary,
                     action: .switchToPrimary,
                     diagnostic: DiagnosticEntry(
-                        trigger: "controlReleased",
-                        reason: "released_control_switch_to_primary",
-                        sourceState: .voiceHeld,
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_primary",
+                        sourceState: .voiceMode,
                         targetState: .idlePrimary
                     ),
-                    timer: EngineTimer(kind: .releaseReturnDelay, delaySeconds: 0.05)
+                    timer: EngineTimer(kind: .primaryReturnDelay, delaySeconds: 0.05)
                 )
             ),
-            releaseReturnScheduler: scheduler
+            primaryReturnScheduler: scheduler
         )
 
         try model.load()
-        try model.sendTestEvent(.controlReleased)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(scheduler.scheduleCallCount == 1)
         #expect(switchingService.switchCalls.isEmpty)
@@ -196,13 +196,13 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     )
                 )
             )
@@ -236,13 +236,13 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     )
                 )
             )
@@ -277,13 +277,13 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceHeld,
+                    state: .voiceMode,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "controlPressed",
                         reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .voiceHeld
+                        targetState: .voiceMode
                     )
                 )
             )

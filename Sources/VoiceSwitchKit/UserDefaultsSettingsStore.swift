@@ -30,10 +30,8 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         static let isEnabled = "voiceSwitch.isEnabled"
         static let launchAtLoginEnabled = "voiceSwitch.launchAtLoginEnabled"
         static let voiceActivationDelay = "voiceSwitch.voiceActivationDelay"
-        static let releaseReturnDelay = "voiceSwitch.releaseReturnDelay"
+        static let primaryReturnDelay = "voiceSwitch.primaryReturnDelay"
         static let cooldownDuration = "voiceSwitch.cooldownDuration"
-        static let legacyOptionPendingWindow = "voiceSwitch.optionPendingWindow"
-        static let legacyVoiceExitDelay = "voiceSwitch.voiceExitDelay"
     }
 
     private let userDefaults: UserDefaults
@@ -58,16 +56,8 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
                 ? defaults.isEnabled
                 : userDefaults.bool(forKey: Keys.isEnabled),
             launchAtLoginEnabled: userDefaults.bool(forKey: Keys.launchAtLoginEnabled),
-            voiceActivationDelay: loadDelay(
-                primaryKey: Keys.voiceActivationDelay,
-                legacyKey: Keys.legacyOptionPendingWindow,
-                defaultValue: defaults.voiceActivationDelay
-            ),
-            releaseReturnDelay: loadDelay(
-                primaryKey: Keys.releaseReturnDelay,
-                legacyKey: Keys.legacyVoiceExitDelay,
-                defaultValue: defaults.releaseReturnDelay
-            ),
+            voiceActivationDelay: loadDelay(primaryKey: Keys.voiceActivationDelay, defaultValue: defaults.voiceActivationDelay),
+            primaryReturnDelay: loadDelay(primaryKey: Keys.primaryReturnDelay, defaultValue: defaults.primaryReturnDelay),
             cooldownDuration: userDefaults.object(forKey: Keys.cooldownDuration) == nil
                 ? defaults.cooldownDuration
                 : userDefaults.double(forKey: Keys.cooldownDuration)
@@ -85,7 +75,7 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         userDefaults.set(settings.isEnabled, forKey: Keys.isEnabled)
         userDefaults.set(settings.launchAtLoginEnabled, forKey: Keys.launchAtLoginEnabled)
         userDefaults.set(settings.voiceActivationDelay, forKey: Keys.voiceActivationDelay)
-        userDefaults.set(settings.releaseReturnDelay, forKey: Keys.releaseReturnDelay)
+        userDefaults.set(settings.primaryReturnDelay, forKey: Keys.primaryReturnDelay)
         userDefaults.set(settings.cooldownDuration, forKey: Keys.cooldownDuration)
         purgeLegacyKeys()
     }
@@ -113,11 +103,11 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         }
     }
 
-    private func loadDelay(primaryKey: String, legacyKey: String, defaultValue: TimeInterval) -> TimeInterval {
+    private func loadDelay(primaryKey: String, legacyKey: String? = nil, defaultValue: TimeInterval) -> TimeInterval {
         if userDefaults.object(forKey: primaryKey) != nil {
             return sanitizedDelay(userDefaults.double(forKey: primaryKey), defaultValue: defaultValue)
         }
-        if userDefaults.object(forKey: legacyKey) != nil {
+        if let legacyKey, userDefaults.object(forKey: legacyKey) != nil {
             return sanitizedDelay(userDefaults.double(forKey: legacyKey), defaultValue: defaultValue)
         }
         return defaultValue
@@ -152,17 +142,17 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
             ),
             voiceActivationDelay: firstDelay(
                 currentKey: Keys.voiceActivationDelay,
-                currentLegacyKey: Keys.legacyOptionPendingWindow,
+                currentLegacyKey: Keys.voiceActivationDelay,
                 legacyKey: Keys.voiceActivationDelay,
-                legacyFallbackKey: Keys.legacyOptionPendingWindow,
+                legacyFallbackKey: Keys.voiceActivationDelay,
                 defaultValue: defaults.voiceActivationDelay
             ),
-            releaseReturnDelay: firstDelay(
-                currentKey: Keys.releaseReturnDelay,
-                currentLegacyKey: Keys.legacyVoiceExitDelay,
-                legacyKey: Keys.releaseReturnDelay,
-                legacyFallbackKey: Keys.legacyVoiceExitDelay,
-                defaultValue: defaults.releaseReturnDelay
+            primaryReturnDelay: firstDelay(
+                currentKey: Keys.primaryReturnDelay,
+                currentLegacyKey: Keys.primaryReturnDelay,
+                legacyKey: Keys.primaryReturnDelay,
+                legacyFallbackKey: Keys.primaryReturnDelay,
+                defaultValue: defaults.primaryReturnDelay
             ),
             cooldownDuration: firstDouble(
                 currentKey: Keys.cooldownDuration,
@@ -265,8 +255,6 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
     }
 
     private func purgeLegacyKeys() {
-        userDefaults.removeObject(forKey: Keys.legacyOptionPendingWindow)
-        userDefaults.removeObject(forKey: Keys.legacyVoiceExitDelay)
     }
 
     private func removeLegacyDomains() {

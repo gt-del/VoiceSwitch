@@ -2,7 +2,7 @@ import Foundation
 
 public enum EngineState: String, Codable, CaseIterable, Sendable {
     case idlePrimary
-    case voiceHeld
+    case voiceMode
     case cooldown
 }
 
@@ -36,18 +36,18 @@ public enum TypingKeyCategory: String, Codable, CaseIterable, Sendable {
 
 public struct EngineConfiguration: Codable, Equatable, Sendable {
     public var voiceActivationDelay: TimeInterval
-    public var releaseReturnDelay: TimeInterval
+    public var primaryReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
     public var typingKeyWhitelist: [TypingKeyCategory]
 
     public init(
         voiceActivationDelay: TimeInterval = 0,
-        releaseReturnDelay: TimeInterval = 0,
+        primaryReturnDelay: TimeInterval = 0,
         cooldownDuration: TimeInterval = 5,
         typingKeyWhitelist: [TypingKeyCategory] = [.letters, .numbers, .space, .delete, .returnKey]
     ) {
         self.voiceActivationDelay = voiceActivationDelay
-        self.releaseReturnDelay = releaseReturnDelay
+        self.primaryReturnDelay = primaryReturnDelay
         self.cooldownDuration = cooldownDuration
         self.typingKeyWhitelist = typingKeyWhitelist
     }
@@ -69,7 +69,7 @@ public struct DiagnosticEntry: Codable, Equatable, Sendable {
 
 public enum EngineTimerKind: String, Codable, Equatable, Sendable {
     case voiceActivationDelay
-    case releaseReturnDelay
+    case primaryReturnDelay
     case cooldown
 }
 
