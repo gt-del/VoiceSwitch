@@ -47,6 +47,49 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
+    func disablingModelClearsStaleMonitoringErrorsAndStopsServices() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        service.emit(.listenerInactive(reason: "Accessibility permission denied"))
+
+        model.setEnabled(false)
+
+        #expect(model.statusSummary == "Disabled")
+        #expect(model.keyboardMonitoringErrorMessage == nil)
+        #expect(model.eventTapStatus == .stopped)
+        #expect(service.stopCallCount >= 1)
+        #expect(model.logEntries.contains { $0.contains("reason=disabled") })
+    }
+
+    @Test
+    func unavailableConfigurationLogsStopReason() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+
+        #expect(model.statusSummary == "Unavailable")
+        #expect(service.stopCallCount >= 1)
+        #expect(model.logEntries.contains { $0.contains("reason=stopped_due_to_blocking_issue") })
+    }
+
+    @Test
     func keyboardEventIsMappedIntoEngineTransitionAndLogsFullChain() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
@@ -207,6 +250,7 @@ private extension [InputSourceDescriptor] {
 private final class StubKeyboardEventService: KeyboardEventListening, @unchecked Sendable {
     private var handler: ((KeyboardEventSummary) -> Void)?
     private(set) var startCallCount = 0
+    private(set) var stopCallCount = 0
     var isRunning = true
 
     func start(eventHandler: @escaping @Sendable (KeyboardEventSummary) -> Void) {
@@ -216,6 +260,7 @@ private final class StubKeyboardEventService: KeyboardEventListening, @unchecked
     }
 
     func stop() {
+        stopCallCount += 1
         isRunning = false
     }
 

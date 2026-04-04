@@ -21,6 +21,7 @@ struct StatusMenuView: View {
             Divider()
 
             Button("Open VoiceSwitch") {
+                NSApp.activate(ignoringOtherApps: true)
                 openWindow(id: "main")
             }
 
