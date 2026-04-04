@@ -11,6 +11,10 @@ struct StatusMenuView: View {
                 .font(.headline)
 
             Text("当前状态：\(model.statusSummary)")
+            Text("第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let menuBlockingLabel = model.menuBlockingLabel {
                 Text("问题：\(menuBlockingLabel)")
@@ -38,6 +42,6 @@ struct StatusMenuView: View {
             }
         }
         .padding(12)
-        .frame(width: 220)
+        .frame(width: 260)
     }
 }

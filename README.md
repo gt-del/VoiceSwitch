@@ -67,6 +67,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 双击�
 当前关键事件：
 
 - `controlPressed`
+- `controlReleased`（仅保留兼容，不驱动主切换）
 - `manualSwitchDetected`
 - `cooldownExpired`
 
@@ -83,7 +84,9 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 双击�
 
 - `switchToVoiceDelay`、`switchToPrimaryDelay`、`cooldownDuration` 由 Rust core 配置驱动
 - `switchToVoiceDelay` 和 `switchToPrimaryDelay` 只用于轻微防抖，不改变主状态机语义
+- `controlReleased` 只作为兼容输入事件保留，不再参与主切换路径
 - Swift 负责执行 Rust 返回的动作，并在需要时调度轻微延迟 timer
+- Swift bridge 负责吸收 FFI 里仍保留的旧 ABI 字段名，例如 `voice_activation_delay`、`primary_return_delay`
 - cooldown 期间自动切换会被抑制，并写入结构化日志
 
 ## 设置项

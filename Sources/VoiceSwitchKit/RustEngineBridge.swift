@@ -102,17 +102,7 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
     }
 
     private func ffiConfiguration(from configuration: EngineConfiguration) -> VSConfiguration {
-        let whitelist = Set(configuration.typingKeyWhitelist)
-        return VSConfiguration(
-            voice_activation_delay: configuration.switchToVoiceDelay,
-            primary_return_delay: configuration.switchToPrimaryDelay,
-            cooldown_duration: configuration.cooldownDuration,
-            allow_letters: whitelist.contains(.letters),
-            allow_numbers: whitelist.contains(.numbers),
-            allow_space: whitelist.contains(.space),
-            allow_delete: whitelist.contains(.delete),
-            allow_return_key: whitelist.contains(.returnKey)
-        )
+        LegacyFFIConfiguration(configuration: configuration).rawValue
     }
 
     private func ffiState(from state: EngineState) -> VSState {
@@ -211,6 +201,26 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
             return "unknown ffi error"
         }
         return String(cString: pointer)
+    }
+}
+
+private struct LegacyFFIConfiguration {
+    let rawValue: VSConfiguration
+
+    init(configuration: EngineConfiguration) {
+        let whitelist = Set(configuration.typingKeyWhitelist)
+
+        // Keep legacy ABI field names at the bridge boundary only.
+        self.rawValue = VSConfiguration(
+            voice_activation_delay: configuration.switchToVoiceDelay,
+            primary_return_delay: configuration.switchToPrimaryDelay,
+            cooldown_duration: configuration.cooldownDuration,
+            allow_letters: whitelist.contains(.letters),
+            allow_numbers: whitelist.contains(.numbers),
+            allow_space: whitelist.contains(.space),
+            allow_delete: whitelist.contains(.delete),
+            allow_return_key: whitelist.contains(.returnKey)
+        )
     }
 }
 

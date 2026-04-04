@@ -106,36 +106,36 @@ pub unsafe extern "C" fn rs_engine_transition(
         return VSErrorCode::InvalidArgument;
     }
 
-    let configuration = build_configuration(configuration);
-    if configuration.validate().is_err() {
+    let engine_configuration = build_engine_configuration(configuration);
+    if engine_configuration.validate().is_err() {
         return VSErrorCode::InvalidConfiguration;
     }
 
-    let transition = transition(
+    let engine_transition = transition(
         current_state.into(),
         event.into(),
-        &configuration,
+        &engine_configuration,
     );
 
-    let trigger = match CString::new(transition.diagnostic.trigger) {
+    let trigger = match CString::new(engine_transition.diagnostic.trigger) {
         Ok(value) => value,
         Err(_) => return VSErrorCode::Internal,
     };
-    let reason = match CString::new(transition.diagnostic.reason) {
+    let reason = match CString::new(engine_transition.diagnostic.reason) {
         Ok(value) => value,
         Err(_) => return VSErrorCode::Internal,
     };
 
     let ffi_result = VSTransitionResult {
-        state: transition.state.into(),
-        action: transition.action.into(),
+        state: engine_transition.state.into(),
+        action: engine_transition.action.into(),
         diagnostic: VSDiagnostic {
             trigger: trigger.into_raw(),
             reason: reason.into_raw(),
-            source_state: transition.diagnostic.source_state.into(),
-            target_state: transition.diagnostic.target_state.into(),
+            source_state: engine_transition.diagnostic.source_state.into(),
+            target_state: engine_transition.diagnostic.target_state.into(),
         },
-        timer: transition
+        timer: engine_transition
             .timer
             .map(Into::into)
             .unwrap_or(VSTimer {
@@ -185,7 +185,7 @@ pub extern "C" fn rs_error_message(code: VSErrorCode) -> *const c_char {
     }
 }
 
-fn build_configuration(configuration: VSConfiguration) -> EngineConfiguration {
+fn build_engine_configuration(configuration: VSConfiguration) -> EngineConfiguration {
     let mut typing_key_whitelist = Vec::new();
     if configuration.allow_letters {
         typing_key_whitelist.push(TypingKeyCategory::Letters);
@@ -203,6 +203,7 @@ fn build_configuration(configuration: VSConfiguration) -> EngineConfiguration {
         typing_key_whitelist.push(TypingKeyCategory::ReturnKey);
     }
 
+    // Keep legacy FFI field names here; the core keeps toggle-oriented naming.
     EngineConfiguration {
         switch_to_voice_delay: configuration.voice_activation_delay,
         switch_to_primary_delay: configuration.primary_return_delay,

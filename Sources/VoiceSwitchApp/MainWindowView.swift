@@ -70,7 +70,7 @@ struct MainWindowView: View {
         if model.blockingReason != nil {
             return "当前不可用，请按页面中的建议处理后再试。"
         }
-        return "当前配置可运行。关闭主窗口后应用仍会常驻，你可以从 Dock 或菜单栏重新打开。"
+        return "第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。关闭主窗口后应用仍会常驻。"
     }
 
     private var bannerColor: Color {

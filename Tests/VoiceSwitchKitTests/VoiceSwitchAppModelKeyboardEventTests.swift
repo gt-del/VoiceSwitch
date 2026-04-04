@@ -151,6 +151,30 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
+    func appModelForwardsSecondLeftControlPressWithoutSynthesizingRelease() throws {
+        let service = StubKeyboardEventService()
+        let bridge = RecordingToggleKeyboardEngineBridge()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: bridge,
+            keyboardEventService: service
+        )
+
+        try model.load()
+        service.emit(.controlPressed(keyCode: 59))
+        service.emit(.controlPressed(keyCode: 59))
+
+        #expect(bridge.recordedEvents == [.controlPressed, .controlPressed])
+        #expect(model.currentEngineState == .idlePrimary)
+        #expect(model.lastEngineAction == .switchToPrimary)
+        #expect(model.lastInputBehavior == .controlPressed)
+        #expect(!model.logEntries.contains { $0.contains("trigger=controlReleased") })
+    }
+
+    @Test
     func secondLeftControlPressSwitchesBackToPrimary() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
@@ -553,6 +577,56 @@ private struct ToggleKeyboardEngineBridge: EngineBridging {
         event: InputBehavior,
         configuration: EngineConfiguration
     ) throws -> EngineTransitionResult {
+        switch (currentState, event) {
+        case (.idlePrimary, .controlPressed):
+            return EngineTransitionResult(
+                state: .voiceMode,
+                action: .switchToVoice,
+                diagnostic: DiagnosticEntry(
+                    trigger: "controlPressed",
+                    reason: "pressed_control_switch_to_voice",
+                    sourceState: .idlePrimary,
+                    targetState: .voiceMode
+                )
+            )
+        case (.voiceMode, .controlPressed):
+            return EngineTransitionResult(
+                state: .idlePrimary,
+                action: .switchToPrimary,
+                diagnostic: DiagnosticEntry(
+                    trigger: "controlPressed",
+                    reason: "pressed_control_switch_to_primary",
+                    sourceState: .voiceMode,
+                    targetState: .idlePrimary
+                )
+            )
+        case (.voiceMode, .controlReleased):
+            return EngineTransitionResult(
+                state: .voiceMode,
+                action: .noOp,
+                diagnostic: DiagnosticEntry(
+                    trigger: "controlReleased",
+                    reason: "ignored_event_in_current_state",
+                    sourceState: .voiceMode,
+                    targetState: .voiceMode
+                )
+            )
+        default:
+            return .idlePrimaryResult
+        }
+    }
+}
+
+private final class RecordingToggleKeyboardEngineBridge: EngineBridging, @unchecked Sendable {
+    private(set) var recordedEvents: [InputBehavior] = []
+
+    func transition(
+        from currentState: EngineState,
+        event: InputBehavior,
+        configuration: EngineConfiguration
+    ) throws -> EngineTransitionResult {
+        recordedEvents.append(event)
+
         switch (currentState, event) {
         case (.idlePrimary, .controlPressed):
             return EngineTransitionResult(

@@ -51,7 +51,7 @@ struct SettingsView: View {
         AppCard {
             Text("设置")
                 .font(.title2.weight(.semibold))
-            Text("在这里配置普通输入法、语音输入法，以及左 Control 切换规则。")
+            Text("在这里配置普通输入法、语音输入法，以及第一次按左 Control 切到语音、第二次按左 Control 切回普通的规则。")
                 .foregroundStyle(.secondary)
         }
     }
