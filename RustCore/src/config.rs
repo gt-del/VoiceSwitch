@@ -4,18 +4,18 @@ use thiserror::Error;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineConfiguration {
-    pub option_pending_window: f64,
+    pub voice_activation_delay: f64,
+    pub release_return_delay: f64,
     pub cooldown_duration: f64,
-    pub voice_exit_delay: f64,
     pub typing_key_whitelist: Vec<TypingKeyCategory>,
 }
 
 impl Default for EngineConfiguration {
     fn default() -> Self {
         Self {
-            option_pending_window: 0.18,
+            voice_activation_delay: 0.0,
+            release_return_delay: 0.0,
             cooldown_duration: 5.0,
-            voice_exit_delay: 0.8,
             typing_key_whitelist: vec![
                 TypingKeyCategory::Letters,
                 TypingKeyCategory::Numbers,
@@ -30,13 +30,18 @@ impl Default for EngineConfiguration {
 impl EngineConfiguration {
     pub fn validate(&self) -> Result<(), EngineConfigurationError> {
         validate_duration(
-            self.option_pending_window,
-            0.05,
-            1.0,
-            "optionPendingWindow",
+            self.voice_activation_delay,
+            0.0,
+            0.3,
+            "voiceActivationDelay",
+        )?;
+        validate_duration(
+            self.release_return_delay,
+            0.0,
+            0.3,
+            "releaseReturnDelay",
         )?;
         validate_duration(self.cooldown_duration, 0.5, 30.0, "cooldownDuration")?;
-        validate_duration(self.voice_exit_delay, 0.0, 5.0, "voiceExitDelay")?;
 
         if self.typing_key_whitelist.is_empty() {
             return Err(EngineConfigurationError::EmptyTypingKeyWhitelist);

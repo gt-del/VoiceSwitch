@@ -23,9 +23,6 @@ struct LogPanelView: View {
                 Button("Send Option Released") {
                     model.dispatchTestEvent(.optionReleased)
                 }
-                Button("Send Typing Detected") {
-                    model.dispatchTestEvent(.typingDetected)
-                }
                 Button("Send Manual Switch") {
                     model.dispatchTestEvent(.manualSwitchDetected)
                 }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VoiceSwitchKit
 
@@ -39,6 +40,14 @@ struct SettingsView: View {
                         .foregroundStyle(.orange)
                 }
 
+                Text("If you are running from `swift run`, macOS may not register this executable like a normal app bundle. Open Accessibility settings and add the built VoiceSwitch binary manually if needed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button("Open Accessibility Settings") {
+                    openAccessibilitySettings()
+                }
+
                 Button("Retry Keyboard Monitoring") {
                     model.retryKeyboardMonitoring()
                 }
@@ -54,17 +63,21 @@ struct SettingsView: View {
             }
 
             Section("Engine Parameters") {
-                Stepper(value: $model.optionPendingWindow, in: 0.05...1.0, step: 0.05) {
-                    Text("Option Pending Window: \(model.optionPendingWindow, format: .number.precision(.fractionLength(2)))s")
+                Stepper(value: $model.voiceActivationDelay, in: 0.0...0.3, step: 0.01) {
+                    Text("Voice Activation Delay: \(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
                 }
 
                 Stepper(value: $model.cooldownDuration, in: 0.5...30.0, step: 0.5) {
                     Text("Cooldown Duration: \(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
                 }
 
-                Stepper(value: $model.voiceExitDelay, in: 0.0...5.0, step: 0.1) {
-                    Text("Voice Exit Delay: \(model.voiceExitDelay, format: .number.precision(.fractionLength(1)))s")
+                Stepper(value: $model.releaseReturnDelay, in: 0.0...0.3, step: 0.01) {
+                    Text("Release Return Delay: \(model.releaseReturnDelay, format: .number.precision(.fractionLength(2)))s")
                 }
+
+                Text("按住 Option 切到 Voice IME，松开 Option 切回 Primary IME。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Text("Changes affect new events immediately. Save persists them.")
                     .font(.caption)
@@ -80,5 +93,13 @@ struct SettingsView: View {
         .task {
             try? model.load()
         }
+    }
+
+    private func openAccessibilitySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
     }
 }

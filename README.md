@@ -3,9 +3,8 @@
 VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。当前版本围绕一个最小可用闭环构建：
 
 - 默认保持用户配置的 `Primary IME`
-- `Option` 触发语音候选窗口
-- 窗口到期后切换到 `Voice IME`
-- 检测到打字后切回 `Primary IME`
+- 按住 `Option` 切换到 `Voice IME`
+- 松开 `Option` 切回 `Primary IME`
 - 用户手动切换输入法后进入 `cooldown`
 
 当前实现目标是 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
@@ -24,11 +23,10 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 
 ## 当前状态机
 
-当前实现只保留 4 个状态：
+当前实现只保留 3 个状态：
 
 - `idlePrimary`
-- `optionPending`
-- `voiceActive`
+- `voiceHeld`
 - `cooldown`
 
 当前实现只保留 4 个动作：
@@ -42,7 +40,7 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 
 - `optionPressed`
 - `optionReleased`
-- `optionWindowExpired`
+- `typingDetected`
 - `typingKeyLetters`
 - `typingKeyNumbers`
 - `typingKeySpace`
@@ -50,23 +48,23 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 - `typingKeyReturnKey`
 - `manualSwitchDetected`
 - `cooldownExpired`
-- `voiceExitDelayElapsed`
 
 ## 当前自动切换行为
 
 核心闭环如下：
 
-1. `idlePrimary + optionPressed -> optionPending`
-2. `optionPending + optionWindowExpired -> voiceActive + switchToVoice`
-3. `voiceActive + typingKey* -> idlePrimary + switchToPrimary`
-4. `* + manualSwitchDetected -> cooldown + enterCooldown`
-5. `cooldown + cooldownExpired -> idlePrimary`
+1. `idlePrimary + optionPressed -> voiceHeld + switchToVoice`
+2. `voiceHeld + optionReleased -> idlePrimary + switchToPrimary`
+3. `* + manualSwitchDetected -> cooldown + enterCooldown`
+4. `cooldown + cooldownExpired -> idlePrimary`
 
 补充规则：
 
-- `optionPendingWindow`、`cooldownDuration`、`voiceExitDelay` 由 Rust core 配置驱动
-- Swift 只负责执行 Rust 返回的 `timer`
+- `voiceActivationDelay`、`releaseReturnDelay`、`cooldownDuration` 由 Rust core 配置驱动
+- `voiceActivationDelay` 和 `releaseReturnDelay` 只用于轻微防抖，不改变主状态机语义
+- Swift 负责执行 Rust 返回的动作，并在需要时调度轻微延迟 timer
 - `typingKeyWhitelist` 定义在 Rust core，Swift 只上传稳定键类别
+- typing 事件保留兼容，但不再决定主路径回切
 - cooldown 期间自动切换会被抑制，并写入结构化日志
 
 ## 设置项
@@ -76,19 +74,19 @@ VoiceSwitch 是一个运行于 macOS 菜单栏的输入法自动切换工具。�
 - `Primary IME`
 - `Voice IME`
 - `Launch at Login`
-- `Option Pending Window`
+- `Voice Activation Delay`
+- `Release Return Delay`
 - `Cooldown Duration`
-- `Voice Exit Delay`
 
 当前参数默认值与合法范围：
 
 | 参数 | 默认值 | 范围 |
 | --- | --- | --- |
-| `optionPendingWindow` | `0.18s` | `0.05...1.0` |
+| `voiceActivationDelay` | `0.00s` | `0.0...0.3` |
+| `releaseReturnDelay` | `0.00s` | `0.0...0.3` |
 | `cooldownDuration` | `5.0s` | `0.5...30.0` |
-| `voiceExitDelay` | `0.8s` | `0.0...5.0` |
 
-`typingKeyWhitelist` 当前已进入 Rust 行为链路，但还没有在设置页暴露。
+`typingKeyWhitelist` 当前仍保留在 Rust 内部配置中，但不在设置页暴露，也不参与主切换逻辑。
 
 ## 日志字段
 

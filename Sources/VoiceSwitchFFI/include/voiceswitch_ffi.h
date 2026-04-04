@@ -6,24 +6,21 @@
 
 typedef enum {
     VSStateIdlePrimary = 0,
-    VSStateOptionPending = 1,
-    VSStateVoiceActive = 2,
-    VSStateCooldown = 3,
+    VSStateVoiceHeld = 1,
+    VSStateCooldown = 2,
 } VSState;
 
 typedef enum {
     VSEventOptionPressed = 0,
     VSEventOptionReleased = 1,
-    VSEventOptionWindowExpired = 2,
-    VSEventTypingDetected = 3,
-    VSEventTypingKeyLetters = 4,
-    VSEventTypingKeyNumbers = 5,
-    VSEventTypingKeySpace = 6,
-    VSEventTypingKeyDelete = 7,
-    VSEventTypingKeyReturnKey = 8,
-    VSEventManualSwitchDetected = 9,
-    VSEventCooldownExpired = 10,
-    VSEventVoiceExitDelayElapsed = 11,
+    VSEventTypingDetected = 2,
+    VSEventTypingKeyLetters = 3,
+    VSEventTypingKeyNumbers = 4,
+    VSEventTypingKeySpace = 5,
+    VSEventTypingKeyDelete = 6,
+    VSEventTypingKeyReturnKey = 7,
+    VSEventManualSwitchDetected = 8,
+    VSEventCooldownExpired = 9,
 } VSEvent;
 
 typedef enum {
@@ -34,8 +31,8 @@ typedef enum {
 } VSAction;
 
 typedef enum {
-    VSTimerKindOptionPendingWindow = 0,
-    VSTimerKindVoiceExitDelay = 1,
+    VSTimerKindVoiceActivationDelay = 0,
+    VSTimerKindReleaseReturnDelay = 1,
     VSTimerKindCooldown = 2,
 } VSTimerKind;
 
@@ -47,9 +44,9 @@ typedef enum {
 } VSErrorCode;
 
 typedef struct {
-    double option_pending_window;
+    double voice_activation_delay;
+    double release_return_delay;
     double cooldown_duration;
-    double voice_exit_delay;
     bool allow_letters;
     bool allow_numbers;
     bool allow_space;

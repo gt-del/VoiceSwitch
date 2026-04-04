@@ -11,9 +11,9 @@ struct VoiceSwitchAppModelTests {
                 primaryInputSourceID: "primary.id",
                 voiceInputSourceID: "voice.id",
                 launchAtLoginEnabled: true,
-                optionPendingWindow: 0.25,
+                voiceActivationDelay: 0.25,
+                releaseReturnDelay: 0.1,
                 cooldownDuration: 7,
-                voiceExitDelay: 1.2
             )
         )
         let provider = StubInputSourceProvider(
@@ -38,9 +38,9 @@ struct VoiceSwitchAppModelTests {
         #expect(model.selectedPrimaryInputSourceID == "primary.id")
         #expect(model.selectedVoiceInputSourceID == "voice.id")
         #expect(model.launchAtLoginEnabled)
-        #expect(model.optionPendingWindow == 0.25)
+        #expect(model.voiceActivationDelay == 0.25)
+        #expect(model.releaseReturnDelay == 0.1)
         #expect(model.cooldownDuration == 7)
-        #expect(model.voiceExitDelay == 1.2)
         #expect(model.availableInputSources.count == 2)
         #expect(model.permissionSnapshot == permissions.snapshot())
     }
@@ -59,9 +59,9 @@ struct VoiceSwitchAppModelTests {
         model.selectedPrimaryInputSourceID = "com.apple.keylayout.ABC"
         model.selectedVoiceInputSourceID = "com.example.voice"
         model.launchAtLoginEnabled = true
-        model.optionPendingWindow = 0.25
+        model.voiceActivationDelay = 0.25
+        model.releaseReturnDelay = 0.1
         model.cooldownDuration = 7
-        model.voiceExitDelay = 1.2
 
         model.saveSelections()
 
@@ -69,9 +69,9 @@ struct VoiceSwitchAppModelTests {
             primaryInputSourceID: "com.apple.keylayout.ABC",
             voiceInputSourceID: "com.example.voice",
             launchAtLoginEnabled: true,
-            optionPendingWindow: 0.25,
+            voiceActivationDelay: 0.25,
+            releaseReturnDelay: 0.1,
             cooldownDuration: 7,
-            voiceExitDelay: 1.2
         ))
         #expect(launchAtLoginController.lastEnabled == true)
     }
