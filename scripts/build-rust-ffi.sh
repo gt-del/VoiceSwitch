@@ -3,14 +3,14 @@ set -eu
 
 PACKAGE_DIR="$1"
 OUTPUT_DIR="$2"
+
 if [ -n "${HOME:-}" ]; then
   export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
 if ! command -v cargo >/dev/null 2>&1; then
-  if [ -x "/Users/didi/.cargo/bin/cargo" ]; then
-    export PATH="/Users/didi/.cargo/bin:$PATH"
-  fi
+  echo "error: cargo not found in PATH; install Rust or export cargo into PATH before building VoiceSwitch FFI" >&2
+  exit 1
 fi
 
 cargo build \
