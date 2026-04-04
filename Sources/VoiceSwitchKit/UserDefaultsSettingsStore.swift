@@ -171,8 +171,11 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
             )
         )
 
-        if (try? validate(settings: migratedSettings)) != nil {
+        do {
+            try validate(settings: migratedSettings)
             persistValidatedSettings(migratedSettings)
+        } catch {
+            // Skip persisting invalid legacy configurations, but still clear the old domain.
         }
         removeLegacyDomains()
     }
