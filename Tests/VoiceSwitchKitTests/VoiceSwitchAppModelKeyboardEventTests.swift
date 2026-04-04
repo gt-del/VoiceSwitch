@@ -98,7 +98,8 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         model.retryKeyboardMonitoring()
 
         #expect(model.eventTapStatus == .stopped)
-        #expect(model.keyboardMonitoringErrorMessage == "Accessibility permission denied")
+        #expect(model.keyboardMonitoringErrorMessage?.contains("Accessibility permission denied") == true)
+        #expect(model.keyboardMonitoringErrorMessage?.contains("Privacy & Security > Accessibility") == true)
         #expect(model.logEntries.contains { $0.contains("retryResult=skipped") })
     }
 
@@ -124,6 +125,38 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         #expect(model.eventTapStatus == .running)
         #expect(model.keyboardMonitoringErrorMessage == nil)
         #expect(model.logEntries.contains { $0.contains("retryResult=started") })
+    }
+
+    @Test
+    func realKeyboardEventClearsStalePermissionError() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: []),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            engineBridge: StubKeyboardEngineBridge(
+                result: EngineTransitionResult(
+                    state: .optionPending,
+                    action: .noOp,
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionPressed",
+                        reason: "entered_option_pending",
+                        sourceState: .idlePrimary,
+                        targetState: .optionPending
+                    )
+                )
+            ),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        service.emit(.listenerInactive(reason: "Accessibility permission denied"))
+        #expect(model.keyboardMonitoringErrorMessage == "listenerInactive(reason:Accessibility permission denied)")
+
+        service.emit(.optionPressed(keyCode: 58))
+
+        #expect(model.eventTapStatus == .running)
+        #expect(model.keyboardMonitoringErrorMessage == nil)
     }
 }
 
@@ -203,6 +236,10 @@ private final class MutableKeyboardPermissionProvider: PermissionStatusProviding
     }
 
     func snapshot() -> PermissionSnapshot {
+        current
+    }
+
+    func requestAccessibilityAuthorization() -> PermissionSnapshot {
         current
     }
 }

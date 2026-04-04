@@ -92,6 +92,15 @@ public final class VoiceSwitchAppModel {
         let settings = settingsStore.load()
         availableInputSources = try inputSourceProvider.selectableInputSources()
         permissionSnapshot = permissionProvider.snapshot()
+        if permissionSnapshot.accessibility != .authorized {
+            permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
+            if permissionSnapshot.accessibility != .authorized {
+                keyboardMonitoringErrorMessage = "Accessibility permission denied. Approve VoiceSwitch in Privacy & Security > Accessibility, then retry."
+                logEntries.append("listener=keyboard_monitoring authorization=requested result=denied")
+            }
+        } else {
+            keyboardMonitoringErrorMessage = nil
+        }
         configurationIssues = []
         let availableIDs = Set(availableInputSources.map(\.id))
 
@@ -172,9 +181,9 @@ public final class VoiceSwitchAppModel {
     }
 
     public func retryKeyboardMonitoring() {
-        permissionSnapshot = permissionProvider.snapshot()
+        permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
         guard permissionSnapshot.accessibility == .authorized else {
-            keyboardMonitoringErrorMessage = "Accessibility permission denied"
+            keyboardMonitoringErrorMessage = "Accessibility permission denied. Approve VoiceSwitch in Privacy & Security > Accessibility, then retry."
             logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=accessibility_denied")
             eventTapStatus = .stopped
             return
@@ -217,9 +226,7 @@ public final class VoiceSwitchAppModel {
             keyboardMonitoringErrorMessage = summary.rawDescription
         case .tapRecoveryAttempted, .optionPressed, .optionReleased, .typingKey:
             eventTapStatus = .running
-            if case .tapRecoveryAttempted = summary {
-                keyboardMonitoringErrorMessage = nil
-            }
+            keyboardMonitoringErrorMessage = nil
         }
 
         logEntries.append("Keyboard raw=\(summary.rawDescription)")

@@ -14,7 +14,7 @@ public struct VoiceSwitchSettings: Equatable, Sendable {
         launchAtLoginEnabled: Bool = false,
         optionPendingWindow: TimeInterval = 0.18,
         cooldownDuration: TimeInterval = 5,
-        voiceExitDelay: TimeInterval = 0.8
+        voiceExitDelay: TimeInterval = 10
     ) {
         self.primaryInputSourceID = primaryInputSourceID
         self.voiceInputSourceID = voiceInputSourceID

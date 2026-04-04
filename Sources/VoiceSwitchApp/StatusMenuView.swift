@@ -24,8 +24,9 @@ struct StatusMenuView: View {
 
             Divider()
 
-            SettingsLink {
-                Text("Open Settings")
+            Button("Open Settings") {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.sendAction(#selector(AppDelegate.showSettingsWindow(_:)), to: nil, from: nil)
             }
 
             Button("Open Logs") {

@@ -15,7 +15,7 @@ impl Default for EngineConfiguration {
         Self {
             option_pending_window: 0.18,
             cooldown_duration: 5.0,
-            voice_exit_delay: 0.8,
+            voice_exit_delay: 10.0,
             typing_key_whitelist: vec![
                 TypingKeyCategory::Letters,
                 TypingKeyCategory::Numbers,
@@ -36,7 +36,7 @@ impl EngineConfiguration {
             "optionPendingWindow",
         )?;
         validate_duration(self.cooldown_duration, 0.5, 30.0, "cooldownDuration")?;
-        validate_duration(self.voice_exit_delay, 0.0, 5.0, "voiceExitDelay")?;
+        validate_duration(self.voice_exit_delay, 0.0, 30.0, "voiceExitDelay")?;
 
         if self.typing_key_whitelist.is_empty() {
             return Err(EngineConfigurationError::EmptyTypingKeyWhitelist);

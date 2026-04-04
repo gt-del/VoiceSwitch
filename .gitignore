@@ -1,3 +1,4 @@
 .build/
 .swiftpm/
 RustCore/target/
+.dev-app/

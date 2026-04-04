@@ -46,7 +46,7 @@ public struct EngineConfiguration: Codable, Equatable, Sendable {
     public init(
         optionPendingWindow: TimeInterval = 0.18,
         cooldownDuration: TimeInterval = 5,
-        voiceExitDelay: TimeInterval = 0.8,
+        voiceExitDelay: TimeInterval = 10,
         typingKeyWhitelist: [TypingKeyCategory] = [.letters, .numbers, .space, .delete, .returnKey]
     ) {
         self.optionPendingWindow = optionPendingWindow

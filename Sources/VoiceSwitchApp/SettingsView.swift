@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VoiceSwitchKit
 
@@ -39,6 +40,14 @@ struct SettingsView: View {
                         .foregroundStyle(.orange)
                 }
 
+                Text("If you are running from `swift run`, macOS may not register this executable like a normal app bundle. Open Accessibility settings and add the built VoiceSwitch binary manually if needed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button("Open Accessibility Settings") {
+                    openAccessibilitySettings()
+                }
+
                 Button("Retry Keyboard Monitoring") {
                     model.retryKeyboardMonitoring()
                 }
@@ -62,7 +71,7 @@ struct SettingsView: View {
                     Text("Cooldown Duration: \(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
                 }
 
-                Stepper(value: $model.voiceExitDelay, in: 0.0...5.0, step: 0.1) {
+                Stepper(value: $model.voiceExitDelay, in: 0.0...30.0, step: 0.5) {
                     Text("Voice Exit Delay: \(model.voiceExitDelay, format: .number.precision(.fractionLength(1)))s")
                 }
 
@@ -80,5 +89,13 @@ struct SettingsView: View {
         .task {
             try? model.load()
         }
+    }
+
+    private func openAccessibilitySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
     }
 }

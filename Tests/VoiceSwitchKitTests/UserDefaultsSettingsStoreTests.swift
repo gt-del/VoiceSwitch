@@ -24,4 +24,27 @@ struct UserDefaultsSettingsStoreTests {
 
         #expect(actual == expected)
     }
+
+    @Test
+    func loadUsesExpandedVoiceExitDelayDefault() {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+
+        let store = UserDefaultsSettingsStore(userDefaults: defaults)
+        let actual = store.load()
+
+        #expect(actual.voiceExitDelay == 10)
+    }
+
+    @Test
+    func loadMigratesLegacyVoiceExitDelayDefault() {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        defaults.set(0.8, forKey: "voiceSwitch.voiceExitDelay")
+
+        let store = UserDefaultsSettingsStore(userDefaults: defaults)
+        let actual = store.load()
+
+        #expect(actual.voiceExitDelay == 10)
+    }
 }

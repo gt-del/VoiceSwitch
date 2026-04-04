@@ -4,7 +4,10 @@ import VoiceSwitchKit
 @main
 struct VoiceSwitchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model: VoiceSwitchAppModel = {
+    @State private var model: VoiceSwitchAppModel
+
+    init() {
+        let model = {
         let permissionProvider = SystemPermissionStatusProvider()
         let inputSourceSwitchingService = InputSourceSwitchingService()
 
@@ -20,15 +23,15 @@ struct VoiceSwitchApp: App {
             keyboardEventService: KeyboardEventTapService(permissionProvider: permissionProvider),
             cooldownScheduler: CooldownScheduler()
         )
-    }()
+        }()
+
+        _model = State(initialValue: model)
+        AppDelegate.sharedModel = model
+    }
 
     var body: some Scene {
         MenuBarExtra("VoiceSwitch", systemImage: "waveform.and.mic") {
             StatusMenuView(model: model)
-        }
-
-        Settings {
-            SettingsView(model: model)
         }
 
         Window("Logs", id: "logs") {

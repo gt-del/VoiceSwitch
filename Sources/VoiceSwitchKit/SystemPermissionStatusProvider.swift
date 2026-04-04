@@ -10,4 +10,13 @@ public struct SystemPermissionStatusProvider: PermissionStatusProviding, Sendabl
             inputMonitoring: .unknown
         )
     }
+
+    public func requestAccessibilityAuthorization() -> PermissionSnapshot {
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        let isAuthorized = AXIsProcessTrustedWithOptions(options)
+        return PermissionSnapshot(
+            accessibility: isAuthorized ? .authorized : .denied,
+            inputMonitoring: .unknown
+        )
+    }
 }
