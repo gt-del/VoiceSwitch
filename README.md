@@ -27,14 +27,20 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - 启动应用后直接显示主窗口，可在窗口内完成主要配置
 - 关闭主窗口后应用不会退出，会继续保留 Dock 与菜单栏入口常驻运行
 - 主窗口关闭后，可通过点击 Dock 图标或菜单栏 `Open VoiceSwitch` 重新打开
-- `Dashboard` 展示当前状态、权限、监听状态、当前 IME 和最近动作
-- `Settings` 负责 Input Sources、Behavior、Permissions & System 配置
-- `Logs` 展示最近日志、原始事件与调试按钮
-- `Permissions & System` 会显示实时权限检测值：
+- `Dashboard` 默认只展示当前状态、输入法组合、权限/监听状态、最近动作
+- 诊断字段收进 `诊断信息` 折叠区，避免主视图被路径和底层布尔值占满
+- `Settings` 负责 Input Sources、Behavior、Permissions & System 配置，设置改动会自动保存并自动应用
+- `Logs` 默认显示用户日志，可切换到完整诊断日志和原始事件
+- `Permissions & System` 会显示实时权限检测值与运行对象信息：
   - `AXIsProcessTrusted`
   - `CGPreflightListenEventAccess`
   - 当前运行路径
   - 当前 Bundle ID / Bundle 路径
+- 主窗口和设置页都会区分以下不可用原因：
+  - `AccessibilityDenied`
+  - `InputMonitoringDenied`
+  - `RuntimeIdentityMismatch`
+  - `KeyboardMonitoringStopped`
 - 菜单栏只保留：
   - `Open VoiceSwitch`
   - `Status`
@@ -90,7 +96,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 ## 设置项
 
-当前主窗口设置页暴露以下参数，保存后会持久化；新事件会立即使用新配置：
+当前主窗口设置页暴露以下参数，改动后会自动保存并持久化；新事件会立即使用新配置：
 
 - `Primary IME`
 - `Voice IME`
@@ -166,13 +172,12 @@ Swift 测试：
 swift test
 ```
 
-运行：
+推荐运行方式：
 
-```bash
-swift run VoiceSwitchApp
-```
+1. 用 Xcode 直接运行 `VoiceSwitchApp`
+2. 或构建固定 `.app` 产物后启动
 
-开发态 `.app` 运行：
+开发态 `.app` 运行脚本：
 
 ```bash
 ./scripts/run-dev-app.sh
@@ -184,7 +189,7 @@ swift run VoiceSwitchApp
 - `AppIcon.icns`
 - 主窗口 + 菜单栏并存的运行形态
 
-如果要验证更接近成品的软件形态，优先使用 `.app` 启动，而不是只用 `swift run`。
+不建议把 `swift run VoiceSwitchApp` 当成长期使用方式。正式使用请优先从固定 `.app` 产物启动，这样 Dock、权限授权对象、Launch at Login 和事件监听更稳定。
 
 ## 已知限制
 
@@ -201,12 +206,15 @@ swift run VoiceSwitchApp
 此外：
 
 - Event Tap 和输入法切换都依赖系统权限与系统输入源状态
-- 主窗口会区分两类权限问题：
-  - 系统尚未授权
-  - 当前运行目标未命中已授权条目（常见于 `swift run` 或 `.build` 可执行文件）
+- 权限授权对象必须与当前运行目标一致；如果你换了运行路径、Bundle 或重新生成了新 `.app`，macOS 可能会把它当成新的授权对象
+- 主窗口会区分四类主要阻塞原因：
+  - 系统尚未授予辅助功能权限
+  - 系统尚未授予输入监听权限
+  - 当前运行目标未命中已授权条目
+  - 权限和配置正常，但监听服务未运行
 - `Launch at Login` 可能返回 `requiresApproval`，需要用户在系统登录项中确认
 - 主窗口负责主要错误提示；日志页用于排查，不再作为主配置入口
-- 当前日志仍以结构化字符串形式展示，尚未落成持久化 schema
+- 当前日志分为用户日志和诊断日志两层，界面默认展示用户日志；完整诊断仍保留在同一页面中
 
 ## 文档
 

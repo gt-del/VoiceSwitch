@@ -171,6 +171,7 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(!model.canRun)
+        #expect(model.blockingReason?.kind == .primaryInputSourceMissing)
         #expect(model.blockingIssue == "未配置默认输入法。")
         #expect(model.statusSummary == "不可用")
     }
@@ -196,6 +197,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(!model.canRun)
         #expect(model.configurationIssues.contains("默认输入法和语音输入法不能相同。"))
+        #expect(model.blockingReason?.kind == .duplicateInputSources)
         #expect(model.blockingIssue == "默认输入法和语音输入法不能相同。")
     }
 
@@ -211,6 +213,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(!model.canRun)
         #expect(model.statusSummary == "不可用")
+        #expect(model.blockingReason?.kind == .accessibilityDenied)
         #expect(model.blockingIssue?.contains("辅助功能权限") == true)
     }
 
@@ -238,6 +241,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(!model.canRun)
         #expect(model.statusSummary == "不可用")
+        #expect(model.blockingReason?.kind == .inputMonitoringDenied)
         #expect(model.blockingIssue?.contains("输入监听权限") == true)
     }
 
@@ -262,6 +266,7 @@ struct VoiceSwitchAppModelTests {
                     inputMonitoring: .authorized,
                     accessibilityTrusted: false,
                     inputMonitoringTrusted: true,
+                    runtimeIdentityLikelyMismatch: true,
                     executablePath: "/Users/didi/Code/github/VoiceSwitch/.build/debug/VoiceSwitchApp",
                     bundleIdentifier: nil,
                     bundlePath: nil
@@ -271,6 +276,7 @@ struct VoiceSwitchAppModelTests {
 
         try model.load()
 
+        #expect(model.blockingReason?.kind == .runtimeIdentityMismatch)
         #expect(model.blockingIssue?.contains("未命中已授权条目") == true)
     }
 
@@ -295,6 +301,7 @@ struct VoiceSwitchAppModelTests {
                     inputMonitoring: .authorized,
                     accessibilityTrusted: false,
                     inputMonitoringTrusted: true,
+                    runtimeIdentityLikelyMismatch: true,
                     executablePath: "/Users/didi/Code/github/VoiceSwitch/.dev-app/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp",
                     bundleIdentifier: "com.gtdel.VoiceSwitch.dev",
                     bundlePath: "/Users/didi/Code/github/VoiceSwitch/.dev-app/VoiceSwitch.app"
@@ -304,6 +311,7 @@ struct VoiceSwitchAppModelTests {
 
         try model.load()
 
+        #expect(model.blockingReason?.kind == .runtimeIdentityMismatch)
         #expect(model.blockingIssue?.contains("未命中已授权条目") == true)
     }
 
@@ -360,6 +368,33 @@ struct VoiceSwitchAppModelTests {
         #expect(model.canRun)
         #expect(model.blockingIssue == nil)
         #expect(model.statusSummary == "默认输入")
+    }
+
+    @Test
+    func settingsChangesAreAutoSavedWithoutManualSave() async throws {
+        let store = InMemorySettingsStore(initial: VoiceSwitchSettings())
+        let model = VoiceSwitchAppModel(
+            settingsStore: store,
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
+        )
+
+        try model.load()
+        model.updatePrimaryInputSourceID("primary.id")
+        model.updateVoiceInputSourceID("voice.id")
+        model.setEnabled(false)
+
+        try await Task.sleep(for: .milliseconds(450))
+
+        #expect(store.saved?.primaryInputSourceID == "primary.id")
+        #expect(store.saved?.voiceInputSourceID == "voice.id")
+        #expect(store.saved?.isEnabled == false)
+        #expect(model.settingsSaveStatusMessage == "已自动保存。")
     }
 }
 

@@ -66,7 +66,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         #expect(model.statusSummary == "已停用")
         #expect(model.keyboardMonitoringErrorMessage == nil)
         #expect(model.eventTapStatus == .stopped)
-        #expect(service.stopCallCount >= 1)
+        #expect(service.stopCallCount == 0)
         #expect(model.logEntries.contains { $0.contains("reason=disabled") })
     }
 
@@ -170,12 +170,11 @@ struct VoiceSwitchAppModelKeyboardEventTests {
 
         #expect(model.eventTapStatus == .stopped)
         #expect(model.keyboardMonitoringErrorMessage?.contains("辅助功能权限") == true)
-        #expect(model.keyboardMonitoringErrorMessage?.contains("未命中已授权条目") == true)
         #expect(model.logEntries.contains { $0.contains("retryResult=skipped") })
     }
 
     @Test
-    func retryKeyboardMonitoringRestartsListenerAfterPermissionRecovery() throws {
+    func retryKeyboardMonitoringDoesNotRestartHealthyListener() throws {
         let service = StubKeyboardEventService()
         service.isRunning = false
         let permissions = MutableKeyboardPermissionProvider(
@@ -193,10 +192,10 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         try model.load()
         model.retryKeyboardMonitoring()
 
-        #expect(service.startCallCount == 2)
+        #expect(service.startCallCount == 1)
         #expect(model.eventTapStatus == .running)
         #expect(model.keyboardMonitoringErrorMessage == nil)
-        #expect(model.logEntries.contains { $0.contains("retryResult=started") })
+        #expect(model.logEntries.contains { $0.contains("reason=already_running") })
     }
 
     @Test

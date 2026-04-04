@@ -32,11 +32,27 @@ public struct SystemPermissionStatusProvider: PermissionStatusProviding, Sendabl
         accessibilityTrusted: Bool,
         inputMonitoringTrusted: Bool
     ) -> PermissionSnapshot {
-        PermissionSnapshot(
+        let executablePath = CommandLine.arguments.first ?? ""
+        let bundleIdentifier = Bundle.main.bundleIdentifier
+        let bundlePath = Bundle.main.bundleURL.path
+        let runtimeIdentityLikelyMismatch =
+            (!accessibilityTrusted || !inputMonitoringTrusted) &&
+            (
+                bundleIdentifier == nil ||
+                executablePath.contains("/.build/") ||
+                executablePath.contains("/.dev-app/") ||
+                bundlePath.contains("/.dev-app/")
+            )
+
+        return PermissionSnapshot(
             accessibility: accessibilityTrusted ? .authorized : .denied,
             inputMonitoring: inputMonitoringTrusted ? .authorized : .denied,
             accessibilityTrusted: accessibilityTrusted,
-            inputMonitoringTrusted: inputMonitoringTrusted
+            inputMonitoringTrusted: inputMonitoringTrusted,
+            runtimeIdentityLikelyMismatch: runtimeIdentityLikelyMismatch,
+            executablePath: executablePath,
+            bundleIdentifier: bundleIdentifier,
+            bundlePath: bundlePath
         )
     }
 }
