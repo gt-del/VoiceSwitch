@@ -12,6 +12,7 @@ struct UserDefaultsSettingsStoreTests {
         let expected = VoiceSwitchSettings(
             primaryInputSourceID: "com.apple.keylayout.ABC",
             voiceInputSourceID: "com.example.voice",
+            isEnabled: false,
             launchAtLoginEnabled: true,
             voiceActivationDelay: 0.25,
             releaseReturnDelay: 0.1,
@@ -33,6 +34,7 @@ struct UserDefaultsSettingsStoreTests {
         let store = UserDefaultsSettingsStore(userDefaults: defaults)
         let actual = store.load()
 
+        #expect(actual.isEnabled)
         #expect(actual.voiceActivationDelay == 0)
         #expect(actual.releaseReturnDelay == 0)
     }
