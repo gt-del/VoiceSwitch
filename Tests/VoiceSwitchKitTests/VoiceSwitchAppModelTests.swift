@@ -125,9 +125,9 @@ struct VoiceSwitchAppModelTests {
 
         #expect(model.selectedPrimaryInputSourceID == nil)
         #expect(model.selectedVoiceInputSourceID == "voice.id")
-        #expect(model.configurationIssues.contains { $0.contains("Primary IME is no longer available") })
+        #expect(model.configurationIssues.contains { $0.contains("默认输入法已失效") })
         #expect(!model.canRun)
-        #expect(model.statusSummary == "Unavailable")
+        #expect(model.statusSummary == "不可用")
     }
 
     @Test
@@ -170,8 +170,8 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(!model.canRun)
-        #expect(model.blockingIssue == "Primary IME is not configured.")
-        #expect(model.statusSummary == "Unavailable")
+        #expect(model.blockingIssue == "未配置默认输入法。")
+        #expect(model.statusSummary == "不可用")
     }
 
     @Test
@@ -194,8 +194,8 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(!model.canRun)
-        #expect(model.configurationIssues.contains("Primary IME and Voice IME must be different."))
-        #expect(model.blockingIssue == "Primary IME and Voice IME must be different.")
+        #expect(model.configurationIssues.contains("默认输入法和语音输入法不能相同。"))
+        #expect(model.blockingIssue == "默认输入法和语音输入法不能相同。")
     }
 
     @Test
@@ -209,7 +209,7 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(!model.canRun)
-        #expect(model.statusSummary == "Unavailable")
+        #expect(model.statusSummary == "不可用")
         #expect(model.blockingIssue?.contains("辅助功能权限") == true)
     }
 
@@ -233,13 +233,13 @@ struct VoiceSwitchAppModelTests {
         )
 
         try model.load()
-        #expect(model.statusSummary == "Disabled")
+        #expect(model.statusSummary == "已停用")
 
         model.isEnabled = true
 
         #expect(model.canRun)
         #expect(model.blockingIssue == nil)
-        #expect(model.statusSummary == "Typing")
+        #expect(model.statusSummary == "默认输入")
     }
 }
 

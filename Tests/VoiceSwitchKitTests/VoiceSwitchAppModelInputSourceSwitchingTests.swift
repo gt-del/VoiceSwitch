@@ -212,7 +212,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         try model.sendTestEvent(.optionPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
-        #expect(model.statusSummary == "Unavailable")
+        #expect(model.statusSummary == "不可用")
         #expect(model.logEntries.contains { $0.contains("reason=automation_unavailable") })
     }
 

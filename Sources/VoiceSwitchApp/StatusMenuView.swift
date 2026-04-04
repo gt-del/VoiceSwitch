@@ -10,7 +10,7 @@ struct StatusMenuView: View {
             Text("VoiceSwitch")
                 .font(.headline)
 
-            Text("Status: \(model.statusSummary)")
+            Text("状态：\(model.statusSummary)")
 
             if let issue = model.blockingIssue, model.isEnabled {
                 Text(issue)
@@ -20,20 +20,20 @@ struct StatusMenuView: View {
 
             Divider()
 
-            Button("Open VoiceSwitch") {
+            Button("打开 VoiceSwitch") {
                 NSApp.activate(ignoringOtherApps: true)
                 openWindow(id: "main")
             }
 
-            Button(model.isEnabled ? "Disable" : "Enable") {
+            Button(model.isEnabled ? "停用" : "启用") {
                 model.setEnabled(!model.isEnabled)
             }
 
-            Button("Retry Monitoring") {
+            Button("重试监听") {
                 model.retryKeyboardMonitoring()
             }
 
-            Button("Quit") {
+            Button("退出") {
                 NSApplication.shared.terminate(nil)
             }
         }

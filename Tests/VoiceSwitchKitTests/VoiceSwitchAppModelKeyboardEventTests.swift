@@ -43,7 +43,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         try model.load()
 
         #expect(service.startCallCount == 0)
-        #expect(model.statusSummary == "Disabled")
+        #expect(model.statusSummary == "已停用")
     }
 
     @Test
@@ -63,7 +63,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
 
         model.setEnabled(false)
 
-        #expect(model.statusSummary == "Disabled")
+        #expect(model.statusSummary == "已停用")
         #expect(model.keyboardMonitoringErrorMessage == nil)
         #expect(model.eventTapStatus == .stopped)
         #expect(service.stopCallCount >= 1)
@@ -84,7 +84,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
 
         try model.load()
 
-        #expect(model.statusSummary == "Unavailable")
+        #expect(model.statusSummary == "不可用")
         #expect(service.stopCallCount >= 1)
         #expect(model.logEntries.contains { $0.contains("reason=stopped_due_to_blocking_issue") })
     }
@@ -169,8 +169,8 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         model.retryKeyboardMonitoring()
 
         #expect(model.eventTapStatus == .stopped)
-        #expect(model.keyboardMonitoringErrorMessage?.contains("Accessibility permission denied") == true)
-        #expect(model.keyboardMonitoringErrorMessage?.contains("Privacy & Security > Accessibility") == true)
+        #expect(model.keyboardMonitoringErrorMessage?.contains("未授予辅助功能权限") == true)
+        #expect(model.keyboardMonitoringErrorMessage?.contains("辅助功能") == true)
         #expect(model.logEntries.contains { $0.contains("retryResult=skipped") })
     }
 

@@ -6,33 +6,33 @@ struct LogPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Logs")
+            Text("日志与诊断")
                 .font(.title2)
 
-            Text("Current State: \(model.currentEngineState.rawValue)")
-            Text("Last Event: \(model.lastInputBehavior?.rawValue ?? "none")")
-            Text("Last Action: \(model.lastEngineAction?.rawValue ?? "none")")
-            Text("Event Tap: \(model.eventTapStatus.rawValue)")
-            Text("Accessibility: \(model.permissionSnapshot.accessibility.rawValue)")
-            Text("Last Raw Keyboard Event: \(model.lastRawKeyboardEventSummary ?? "none")")
+            Text("当前状态：\(model.currentEngineState.rawValue)")
+            Text("最近事件：\(model.lastInputBehavior?.rawValue ?? "none")")
+            Text("最近动作：\(model.lastEngineAction?.rawValue ?? "none")")
+            Text("键盘监听：\(model.eventTapStatus.rawValue)")
+            Text("辅助功能权限：\(model.permissionSnapshot.accessibility.rawValue)")
+            Text("最近原始键盘事件：\(model.lastRawKeyboardEventSummary ?? "none")")
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
-                Button("Send Option Pressed") {
+                Button("发送 Option 按下") {
                     model.dispatchTestEvent(.optionPressed)
                 }
-                Button("Send Option Released") {
+                Button("发送 Option 松开") {
                     model.dispatchTestEvent(.optionReleased)
                 }
-                Button("Send Manual Switch") {
+                Button("发送手动切换") {
                     model.dispatchTestEvent(.manualSwitchDetected)
                 }
-                Button("Send Cooldown Expired") {
+                Button("发送冷却到期") {
                     model.dispatchTestEvent(.cooldownExpired)
                 }
             }
 
             if model.logEntries.isEmpty {
-                ContentUnavailableView("No Logs Yet", systemImage: "text.append")
+                ContentUnavailableView("暂无日志", systemImage: "text.append")
             } else {
                 List(model.logEntries, id: \.self) { entry in
                     Text(entry)
