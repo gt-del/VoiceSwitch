@@ -409,6 +409,28 @@ public final class VoiceSwitchAppModel {
         }
     }
 
+    public func handleApplicationDidBecomeActive() {
+        let previousShouldRun = shouldRunAutomation
+        let previousEventTapStatus = eventTapStatus
+
+        permissionSnapshot = permissionProvider.snapshot()
+
+        if shouldRunAutomation {
+            if !previousShouldRun || previousEventTapStatus != .running {
+                updateAutomationState(forceRestart: true)
+                keyboardMonitoringErrorMessage = nil
+                logEntries.append("trigger=app_activation reason=permissions_recovered source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) event_tap=\(eventTapStatus.rawValue)")
+            }
+            return
+        }
+
+        updateAutomationState()
+        if let blockingIssue {
+            keyboardMonitoringErrorMessage = blockingIssue
+        }
+        logEntries.append("trigger=app_activation reason=permissions_still_blocked source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) event_tap=\(eventTapStatus.rawValue)")
+    }
+
     public func sendTestEvent(_ event: InputBehavior) throws {
         try advanceEngine(for: event, rawDescription: nil)
     }

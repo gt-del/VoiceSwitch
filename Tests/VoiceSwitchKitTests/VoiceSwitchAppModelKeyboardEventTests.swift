@@ -223,6 +223,60 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
+    func appActivationAutomaticallyRestartsListenerAfterPermissionRecovery() throws {
+        let service = StubKeyboardEventService()
+        service.isRunning = false
+        let permissions = MutableKeyboardPermissionProvider(
+            current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .denied)
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: permissions,
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        #expect(model.eventTapStatus == .stopped)
+
+        permissions.current = PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)
+        service.isRunning = true
+        model.handleApplicationDidBecomeActive()
+
+        #expect(service.startCallCount == 1)
+        #expect(model.eventTapStatus == .running)
+        #expect(model.keyboardMonitoringErrorMessage == nil)
+        #expect(model.logEntries.contains { $0.contains("trigger=app_activation") })
+        #expect(model.logEntries.contains { $0.contains("reason=permissions_recovered") })
+    }
+
+    @Test
+    func appActivationRefreshesDeniedPermissionsWithoutManualRetry() throws {
+        let service = StubKeyboardEventService()
+        let permissions = MutableKeyboardPermissionProvider(
+            current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .denied)
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: permissions,
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        model.handleApplicationDidBecomeActive()
+
+        #expect(model.eventTapStatus == .stopped)
+        #expect(model.keyboardMonitoringErrorMessage?.contains("权限") == true)
+        #expect(model.logEntries.contains { $0.contains("trigger=app_activation") })
+        #expect(model.logEntries.contains { $0.contains("reason=permissions_still_blocked") })
+    }
+
+    @Test
     func realKeyboardEventClearsStalePermissionError() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
@@ -366,6 +420,10 @@ private final class MutableKeyboardPermissionProvider: PermissionStatusProviding
     }
 
     func requestAccessibilityAuthorization() -> PermissionSnapshot {
+        current
+    }
+
+    func requestInputMonitoringAuthorization() -> PermissionSnapshot {
         current
     }
 }
