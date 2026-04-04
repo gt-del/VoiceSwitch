@@ -6,8 +6,9 @@ struct UserDefaultsSettingsStoreTests {
     @Test
     func saveAndLoadRoundTrip() throws {
         let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
-        defaults.removePersistentDomain(forName: "VoiceSwitchApp")
+        defaults.removePersistentDomain(forName: legacyDomain)
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         let expected = VoiceSwitchSettings(
@@ -30,8 +31,9 @@ struct UserDefaultsSettingsStoreTests {
     @Test
     func loadUsesNewDelayDefaults() {
         let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
-        defaults.removePersistentDomain(forName: "VoiceSwitchApp")
+        defaults.removePersistentDomain(forName: legacyDomain)
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
         let actual = store.load()
@@ -44,8 +46,9 @@ struct UserDefaultsSettingsStoreTests {
     @Test
     func loadMigratesLegacyDelayKeys() {
         let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
-        defaults.removePersistentDomain(forName: "VoiceSwitchApp")
+        defaults.removePersistentDomain(forName: legacyDomain)
         defaults.set(0.18, forKey: "voiceSwitch.optionPendingWindow")
         defaults.set(0.1, forKey: "voiceSwitch.voiceExitDelay")
 
@@ -59,8 +62,9 @@ struct UserDefaultsSettingsStoreTests {
     @Test
     func loadResetsOutOfRangeDelayValuesToDefaults() {
         let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
-        defaults.removePersistentDomain(forName: "VoiceSwitchApp")
+        defaults.removePersistentDomain(forName: legacyDomain)
         defaults.set(0.8, forKey: "voiceSwitch.releaseReturnDelay")
         defaults.set(0.6, forKey: "voiceSwitch.optionPendingWindow")
 
@@ -74,8 +78,9 @@ struct UserDefaultsSettingsStoreTests {
     @Test
     func loadMigratesLegacyVoiceSwitchAppDomainAndDeletesIt() {
         let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
-        defaults.removePersistentDomain(forName: "VoiceSwitchApp")
+        defaults.removePersistentDomain(forName: legacyDomain)
         defaults.setPersistentDomain(
             [
                 "voiceSwitch.primaryInputSourceID": "im.rime.inputmethod.Squirrel.Hans",
@@ -83,12 +88,12 @@ struct UserDefaultsSettingsStoreTests {
                 "voiceSwitch.optionPendingWindow": 0.18,
                 "voiceSwitch.voiceExitDelay": 0.8,
             ],
-            forName: "VoiceSwitchApp"
+            forName: legacyDomain
         )
 
         let store = UserDefaultsSettingsStore(
             userDefaults: defaults,
-            legacyDomainNames: ["VoiceSwitchApp"]
+            legacyDomainNames: [legacyDomain]
         )
         let actual = store.load()
 
@@ -96,14 +101,15 @@ struct UserDefaultsSettingsStoreTests {
         #expect(actual.voiceInputSourceID == "com.bytedance.inputmethod.doubaoime.pinyin")
         #expect(actual.voiceActivationDelay == 0.18)
         #expect(actual.releaseReturnDelay == 0)
-        #expect(defaults.persistentDomain(forName: "VoiceSwitchApp") == nil)
+        #expect(defaults.persistentDomain(forName: legacyDomain) == nil)
     }
 
     @Test
     func savePurgesLegacyDelayKeysFromCurrentDomain() throws {
         let defaults = UserDefaults(suiteName: #function)!
+        let legacyDomain = "\(#function).legacy"
         defaults.removePersistentDomain(forName: #function)
-        defaults.removePersistentDomain(forName: "VoiceSwitchApp")
+        defaults.removePersistentDomain(forName: legacyDomain)
         defaults.set(0.18, forKey: "voiceSwitch.optionPendingWindow")
         defaults.set(0.8, forKey: "voiceSwitch.voiceExitDelay")
 

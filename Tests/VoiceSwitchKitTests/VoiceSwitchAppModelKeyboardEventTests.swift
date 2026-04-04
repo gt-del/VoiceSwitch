@@ -201,10 +201,12 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     @Test
     func repeatedAutomationRefreshDoesNotDuplicateAutomationStateLogs() throws {
         let service = StubKeyboardEventService()
+        let observationService = StubKeyboardInputObservationService()
         let model = VoiceSwitchAppModel(
             settingsStore: KeyboardTestSettingsStore(initial: .configured),
             inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
             inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            inputSourceObservationService: observationService,
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
             keyboardEventService: service
@@ -219,15 +221,18 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         let finalAutomationStateLogs = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
         #expect(finalAutomationStateLogs == initialAutomationStateLogs)
         #expect(service.startCallCount == 1)
+        #expect(observationService.startCallCount == 1)
     }
 
     @Test
     func repeatedSetEnabledCallsDoNotAddDuplicateAutomationLogs() throws {
         let service = StubKeyboardEventService()
+        let observationService = StubKeyboardInputObservationService()
         let model = VoiceSwitchAppModel(
             settingsStore: KeyboardTestSettingsStore(initial: .configured),
             inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
             inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            inputSourceObservationService: observationService,
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
             keyboardEventService: service
@@ -249,6 +254,58 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         let afterSecondEnable = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
 
         #expect(afterSecondEnable == afterFirstEnable)
+        #expect(observationService.startCallCount == 2)
+    }
+
+    @Test
+    func retryKeyboardMonitoringWhileHealthyDoesNotAddAutomationStateLogs() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        let initialAutomationStateLogs = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        model.retryKeyboardMonitoring()
+
+        let finalAutomationStateLogs = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+        #expect(finalAutomationStateLogs == initialAutomationStateLogs)
+        #expect(model.logEntries.contains { $0.contains("retryResult=skipped") && $0.contains("reason=already_running") })
+        #expect(!model.logEntries.contains { $0.contains("trigger=automation_state") && ($0.contains("reason=restarted") || $0.contains("reason=running")) && finalAutomationStateLogs > initialAutomationStateLogs })
+    }
+
+    @Test
+    func repeatedStoppedRefreshDoesNotRepeatStopOrAutomationStateLogs() throws {
+        let service = StubKeyboardEventService()
+        let observationService = StubKeyboardInputObservationService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            inputSourceObservationService: observationService,
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        model.setEnabled(false)
+        let stopCallsAfterDisable = service.stopCallCount
+        let automationStateLogsAfterDisable = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        model.refreshAutomationStateForTesting()
+        model.refreshAutomationStateForTesting()
+
+        let finalAutomationStateLogs = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+        #expect(service.stopCallCount == stopCallsAfterDisable)
+        #expect(observationService.stopCallCount == 1)
+        #expect(finalAutomationStateLogs == automationStateLogsAfterDisable)
     }
 
     @Test
@@ -416,6 +473,22 @@ private final class StubKeyboardInputSourceSwitchingService: InputSourceSwitchin
     }
 
     func switchToInputSource(id: String) throws {}
+}
+
+private final class StubKeyboardInputObservationService: InputSourceObserving, @unchecked Sendable {
+    private(set) var startCallCount = 0
+    private(set) var stopCallCount = 0
+    private var changeHandler: ((InputSourceObservation) -> Void)?
+
+    func start(changeHandler: @escaping @Sendable (InputSourceObservation) -> Void) {
+        startCallCount += 1
+        self.changeHandler = changeHandler
+    }
+
+    func stop() {
+        stopCallCount += 1
+        changeHandler = nil
+    }
 }
 
 private struct StubKeyboardEngineBridge: EngineBridging {

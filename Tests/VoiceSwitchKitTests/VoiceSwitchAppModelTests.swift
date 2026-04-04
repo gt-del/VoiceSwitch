@@ -403,8 +403,21 @@ struct VoiceSwitchAppModelTests {
         model.updateVoiceInputSourceID("voice.id")
         model.setEnabled(false)
 
-        try await Task.sleep(for: .milliseconds(450))
+        var autosaveCompleted = false
+        for _ in 0..<20 {
+            if
+                store.saved?.primaryInputSourceID == "primary.id",
+                store.saved?.voiceInputSourceID == "voice.id",
+                store.saved?.isEnabled == false,
+                model.settingsSaveStatusMessage == "已自动保存。"
+            {
+                autosaveCompleted = true
+                break
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
 
+        #expect(autosaveCompleted)
         #expect(store.saved?.primaryInputSourceID == "primary.id")
         #expect(store.saved?.voiceInputSourceID == "voice.id")
         #expect(store.saved?.isEnabled == false)
