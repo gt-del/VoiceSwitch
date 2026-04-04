@@ -277,6 +277,8 @@ public final class VoiceSwitchAppModel {
             lastEngineAction = .noOp
             isCooldownActive = false
             cooldownDeadline = nil
+            keyboardMonitoringErrorMessage = nil
+            lastRawKeyboardEventSummary = nil
             voiceActivationScheduler.cancel()
             releaseReturnScheduler.cancel()
             cooldownScheduler.cancel()
@@ -576,11 +578,18 @@ public final class VoiceSwitchAppModel {
             keyboardEventService?.stop()
             inputSourceObservationService?.stop()
             eventTapStatus = .stopped
+            if !isEnabled {
+                keyboardMonitoringErrorMessage = nil
+                logAutomationStatusChange(reason: "disabled")
+            } else {
+                logAutomationStatusChange(reason: "stopped_due_to_blocking_issue")
+            }
             return
         }
 
         startKeyboardMonitoring()
         startInputObservation()
+        logAutomationStatusChange(reason: forceRestart ? "restarted" : "running")
     }
 
     private func startKeyboardMonitoring() {
@@ -747,5 +756,11 @@ public final class VoiceSwitchAppModel {
             return "Not Set"
         }
         return availableInputSources.first(where: { $0.id == inputSourceID })?.displayName ?? inputSourceID
+    }
+
+    private func logAutomationStatusChange(reason: String) {
+        logEntries.append(
+            "trigger=automation_state reason=\(reason) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(isEnabled) can_run=\(canRun) event_tap=\(eventTapStatus.rawValue)"
+        )
     }
 }
