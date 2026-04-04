@@ -27,6 +27,11 @@ struct SettingsView: View {
                 .formStyle(.grouped)
 
                 HStack {
+                    if let settingsSaveStatusMessage = model.settingsSaveStatusMessage {
+                        Text(settingsSaveStatusMessage)
+                            .font(.callout)
+                            .foregroundStyle(model.launchAtLoginErrorMessage == nil ? Color.secondary : Color.orange)
+                    }
                     Spacer()
                     Button("保存配置") {
                         model.saveSelections()
@@ -42,7 +47,10 @@ struct SettingsView: View {
     private var enabledBinding: Binding<Bool> {
         Binding(
             get: { model.isEnabled },
-            set: { model.setEnabled($0) }
+            set: {
+                model.markSettingsEdited()
+                model.setEnabled($0)
+            }
         )
     }
 
@@ -118,15 +126,15 @@ private struct BehaviorSection: View {
 
     var body: some View {
         Section("行为") {
-            Stepper(value: $model.voiceActivationDelay, in: 0.0...0.3, step: 0.01) {
+            Stepper(value: voiceActivationDelayBinding, in: 0.0...0.3, step: 0.01) {
                 Text("语音激活延迟：\(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
-            Stepper(value: $model.releaseReturnDelay, in: 0.0...0.3, step: 0.01) {
+            Stepper(value: releaseReturnDelayBinding, in: 0.0...0.3, step: 0.01) {
                 Text("松开返回延迟：\(model.releaseReturnDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
-            Stepper(value: $model.cooldownDuration, in: 0.5...30.0, step: 0.5) {
+            Stepper(value: cooldownDurationBinding, in: 0.5...30.0, step: 0.5) {
                 Text("冷却时长：\(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
             }
 
@@ -134,6 +142,36 @@ private struct BehaviorSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var voiceActivationDelayBinding: Binding<TimeInterval> {
+        Binding(
+            get: { model.voiceActivationDelay },
+            set: {
+                model.markSettingsEdited()
+                model.voiceActivationDelay = $0
+            }
+        )
+    }
+
+    private var releaseReturnDelayBinding: Binding<TimeInterval> {
+        Binding(
+            get: { model.releaseReturnDelay },
+            set: {
+                model.markSettingsEdited()
+                model.releaseReturnDelay = $0
+            }
+        )
+    }
+
+    private var cooldownDurationBinding: Binding<TimeInterval> {
+        Binding(
+            get: { model.cooldownDuration },
+            set: {
+                model.markSettingsEdited()
+                model.cooldownDuration = $0
+            }
+        )
     }
 }
 
@@ -157,7 +195,7 @@ private struct PermissionsSection: View {
                     .foregroundStyle(.orange)
             }
 
-            Toggle("登录时启动", isOn: $model.launchAtLoginEnabled)
+            Toggle("登录时启动", isOn: launchAtLoginBinding)
 
             if let errorMessage = model.launchAtLoginErrorMessage {
                 Text(errorMessage)
@@ -186,5 +224,15 @@ private struct PermissionsSection: View {
         }
 
         NSWorkspace.shared.open(url)
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { model.launchAtLoginEnabled },
+            set: {
+                model.markSettingsEdited()
+                model.launchAtLoginEnabled = $0
+            }
+        )
     }
 }

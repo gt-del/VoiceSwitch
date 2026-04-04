@@ -17,6 +17,7 @@ public final class VoiceSwitchAppModel {
     public private(set) var cooldownDeadline: Date?
     public private(set) var keyboardMonitoringErrorMessage: String?
     public private(set) var launchAtLoginErrorMessage: String?
+    public private(set) var settingsSaveStatusMessage: String?
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
     public var isEnabled: Bool
@@ -314,6 +315,7 @@ public final class VoiceSwitchAppModel {
         voiceActivationDelay = settings.voiceActivationDelay
         releaseReturnDelay = settings.releaseReturnDelay
         cooldownDuration = settings.cooldownDuration
+        settingsSaveStatusMessage = nil
 
         updateAutomationState()
     }
@@ -325,11 +327,13 @@ public final class VoiceSwitchAppModel {
         do {
             try launchAtLoginController.setEnabled(launchAtLoginEnabled)
             launchAtLoginErrorMessage = nil
+            settingsSaveStatusMessage = "配置已保存。"
             logEntries.append(
                 "trigger=launch_at_login reason=updated source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=success"
             )
         } catch {
             launchAtLoginErrorMessage = error.localizedDescription
+            settingsSaveStatusMessage = "配置已保存，但登录启动更新失败。"
             logEntries.append(
                 "trigger=launch_at_login reason=\(error.localizedDescription) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=failed"
             )
@@ -340,6 +344,7 @@ public final class VoiceSwitchAppModel {
 
     public func updatePrimaryInputSourceID(_ inputSourceID: String?) {
         selectedPrimaryInputSourceID = inputSourceID
+        settingsSaveStatusMessage = nil
         if inputSourceID != nil {
             unavailablePrimaryIssue = nil
         }
@@ -347,6 +352,7 @@ public final class VoiceSwitchAppModel {
 
     public func updateVoiceInputSourceID(_ inputSourceID: String?) {
         selectedVoiceInputSourceID = inputSourceID
+        settingsSaveStatusMessage = nil
         if inputSourceID != nil {
             unavailableVoiceIssue = nil
         }
@@ -358,6 +364,7 @@ public final class VoiceSwitchAppModel {
         }
 
         isEnabled = enabled
+        settingsSaveStatusMessage = nil
         if !enabled {
             currentEngineState = .idlePrimary
             lastEngineAction = .noOp
@@ -372,6 +379,10 @@ public final class VoiceSwitchAppModel {
 
         settingsStore.save(makeSettings())
         updateAutomationState()
+    }
+
+    public func markSettingsEdited() {
+        settingsSaveStatusMessage = nil
     }
 
     public func retryKeyboardMonitoring() {
@@ -893,7 +904,9 @@ public final class VoiceSwitchAppModel {
     private var runtimeTargetMismatchLikely: Bool {
         permissionSnapshot.bundleIdentifier == nil ||
         permissionSnapshot.bundlePath == nil ||
-        permissionSnapshot.executablePath.contains("/.build/")
+        permissionSnapshot.executablePath.contains("/.build/") ||
+        permissionSnapshot.executablePath.contains("/.dev-app/") ||
+        (permissionSnapshot.bundlePath?.contains("/.dev-app/") == true)
     }
 
     private func logAutomationStatusChange(reason: String) {

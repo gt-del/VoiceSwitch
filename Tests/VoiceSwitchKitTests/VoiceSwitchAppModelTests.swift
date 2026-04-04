@@ -78,6 +78,7 @@ struct VoiceSwitchAppModelTests {
             cooldownDuration: 7,
         ))
         #expect(launchAtLoginController.lastEnabled == true)
+        #expect(model.settingsSaveStatusMessage == "配置已保存。")
     }
 
     @Test
@@ -264,6 +265,39 @@ struct VoiceSwitchAppModelTests {
                     executablePath: "/Users/didi/Code/github/VoiceSwitch/.build/debug/VoiceSwitchApp",
                     bundleIdentifier: nil,
                     bundlePath: nil
+                )
+            )
+        )
+
+        try model.load()
+
+        #expect(model.blockingIssue?.contains("未命中已授权条目") == true)
+    }
+
+    @Test
+    func devAppBundleUsesMismatchBlockingMessage() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "primary.id",
+                    voiceInputSourceID: "voice.id"
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(
+                current: PermissionSnapshot(
+                    accessibility: .denied,
+                    inputMonitoring: .authorized,
+                    accessibilityTrusted: false,
+                    inputMonitoringTrusted: true,
+                    executablePath: "/Users/didi/Code/github/VoiceSwitch/.dev-app/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp",
+                    bundleIdentifier: "com.gtdel.VoiceSwitch.dev",
+                    bundlePath: "/Users/didi/Code/github/VoiceSwitch/.dev-app/VoiceSwitch.app"
                 )
             )
         )
