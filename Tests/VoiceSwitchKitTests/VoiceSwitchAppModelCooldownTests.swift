@@ -25,7 +25,7 @@ struct VoiceSwitchAppModelCooldownTests {
             ),
             inputSourceSwitchingService: switchingService,
             inputSourceObservationService: observationService,
-            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: RuleBasedCooldownEngineBridge(),
             cooldownScheduler: scheduler,
             nowProvider: clock.now
@@ -65,7 +65,7 @@ struct VoiceSwitchAppModelCooldownTests {
             ),
             inputSourceSwitchingService: switchingService,
             inputSourceObservationService: observationService,
-            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: RuleBasedCooldownEngineBridge(),
             cooldownScheduler: scheduler,
             nowProvider: clock.now
@@ -103,7 +103,7 @@ struct VoiceSwitchAppModelCooldownTests {
             ),
             inputSourceSwitchingService: switchingService,
             inputSourceObservationService: observationService,
-            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: RuleBasedCooldownEngineBridge(),
             cooldownScheduler: scheduler,
             nowProvider: clock.now
@@ -142,7 +142,7 @@ struct VoiceSwitchAppModelCooldownTests {
             ),
             inputSourceSwitchingService: switchingService,
             inputSourceObservationService: observationService,
-            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: RuleBasedCooldownEngineBridge(),
             cooldownScheduler: scheduler,
             nowProvider: clock.now
@@ -178,7 +178,7 @@ struct VoiceSwitchAppModelCooldownTests {
             ),
             inputSourceSwitchingService: switchingService,
             inputSourceObservationService: observationService,
-            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: RuleBasedCooldownEngineBridge(),
             cooldownScheduler: scheduler,
             nowProvider: clock.now
@@ -215,7 +215,7 @@ struct VoiceSwitchAppModelCooldownTests {
             ),
             inputSourceSwitchingService: switchingService,
             inputSourceObservationService: observationService,
-            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: RuleBasedCooldownEngineBridge(),
             cooldownScheduler: scheduler,
             nowProvider: clock.now

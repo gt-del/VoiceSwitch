@@ -23,6 +23,7 @@ if [ ! -x "$EXECUTABLE_PATH" ]; then
   exit 1
 fi
 
+rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$INFO_PLIST_SOURCE" "$CONTENTS_DIR/Info.plist"
 cp "$EXECUTABLE_PATH" "$MACOS_DIR/$EXECUTABLE_NAME"

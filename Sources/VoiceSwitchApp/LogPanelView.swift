@@ -9,12 +9,12 @@ struct LogPanelView: View {
             Text("日志与诊断")
                 .font(.title2)
 
-            Text("当前状态：\(model.currentEngineState.rawValue)")
-            Text("最近事件：\(model.lastInputBehavior?.rawValue ?? "none")")
-            Text("最近动作：\(model.lastEngineAction?.rawValue ?? "none")")
-            Text("键盘监听：\(model.eventTapStatus.rawValue)")
-            Text("辅助功能权限：\(model.permissionSnapshot.accessibility.rawValue)")
-            Text("最近原始键盘事件：\(model.lastRawKeyboardEventSummary ?? "none")")
+            Text("当前状态：\(model.statusSummary)")
+            Text("最近事件：\(model.lastInputBehaviorSummary)")
+            Text("最近动作：\(model.lastActionSummary)")
+            Text("键盘监听：\(model.keyboardListenerStatusLabel)")
+            Text("辅助功能权限：\(model.accessibilityStatusLabel)")
+            Text("最近原始键盘事件：\(model.lastRawKeyboardEventSummary ?? "无")")
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
                 Button("发送 Option 按下") {

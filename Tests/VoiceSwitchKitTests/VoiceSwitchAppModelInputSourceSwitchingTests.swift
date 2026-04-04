@@ -21,7 +21,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,
@@ -63,7 +63,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,
@@ -108,7 +108,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .idlePrimary,
@@ -149,7 +149,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .idlePrimary,
@@ -193,7 +193,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,
@@ -233,7 +233,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,
@@ -274,7 +274,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                 ]
             ),
             inputSourceSwitchingService: switchingService,
-            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,

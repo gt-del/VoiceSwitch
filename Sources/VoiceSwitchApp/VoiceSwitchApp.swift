@@ -1,5 +1,6 @@
 import SwiftUI
 import VoiceSwitchKit
+import AppKit
 
 @main
 struct VoiceSwitchApp: App {
@@ -33,6 +34,9 @@ struct VoiceSwitchApp: App {
     var body: some Scene {
         Window("VoiceSwitch", id: "main") {
             MainWindowView(model: model)
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    model.handleApplicationDidBecomeActive()
+                }
         }
 
         MenuBarExtra("VoiceSwitch", systemImage: "waveform.and.mic") {

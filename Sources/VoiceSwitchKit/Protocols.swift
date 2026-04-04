@@ -17,10 +17,15 @@ public protocol InputSourceSwitching: Sendable {
 public protocol PermissionStatusProviding: Sendable {
     func snapshot() -> PermissionSnapshot
     func requestAccessibilityAuthorization() -> PermissionSnapshot
+    func requestInputMonitoringAuthorization() -> PermissionSnapshot
 }
 
 public extension PermissionStatusProviding {
     func requestAccessibilityAuthorization() -> PermissionSnapshot {
+        snapshot()
+    }
+
+    func requestInputMonitoringAuthorization() -> PermissionSnapshot {
         snapshot()
     }
 }
