@@ -12,7 +12,7 @@ struct KeyboardEventTapServiceTests {
         )
 
         #expect(summary == .controlPressed(keyCode: 59))
-        #expect(summary?.mappedBehavior == .controlPressed)
+        #expect(summary?.mappedBehavior == nil)
         #expect(summary?.rawDescription == "leftControlDown(keyCode:59)")
     }
 
@@ -85,5 +85,80 @@ struct KeyboardEventTapServiceTests {
 
         #expect(summary == .tapDisabled(reason: "timeout"))
         #expect(summary?.mappedBehavior == nil)
+    }
+
+    @Test
+    func leftControlTapEmitsToggleOnlyAfterRelease() {
+        let service = KeyboardEventTapService(permissionProvider: KeyboardEventTapPermissionProvider())
+
+        let downSummaries = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 59,
+            flags: .maskControl
+        )
+        let upSummaries = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 59,
+            flags: []
+        )
+
+        #expect(downSummaries == [.controlPressed(keyCode: 59)])
+        #expect(upSummaries == [.controlReleased(keyCode: 59), .controlTapCompleted(keyCode: 59)])
+        #expect(upSummaries.last?.mappedBehavior == .controlPressed)
+        #expect(upSummaries.last?.rawDescription == "leftControlTapCompleted(keyCode:59)")
+    }
+
+    @Test
+    func typingKeyDuringLeftControlCancelsTapCompletion() {
+        let service = KeyboardEventTapService(permissionProvider: KeyboardEventTapPermissionProvider())
+
+        _ = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 59,
+            flags: .maskControl
+        )
+        let typingSummaries = service.processedSummaries(
+            for: .keyDown,
+            keyCode: 0,
+            flags: .maskControl
+        )
+        let releaseSummaries = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 59,
+            flags: []
+        )
+
+        #expect(typingSummaries == [.typingKey(keyCode: 0, category: .letters)])
+        #expect(releaseSummaries == [.controlReleased(keyCode: 59)])
+    }
+
+    @Test
+    func otherModifierDuringLeftControlCancelsTapCompletion() {
+        let service = KeyboardEventTapService(permissionProvider: KeyboardEventTapPermissionProvider())
+
+        _ = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 59,
+            flags: .maskControl
+        )
+        let modifierSummaries = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 56,
+            flags: [.maskControl, .maskShift]
+        )
+        let releaseSummaries = service.processedSummaries(
+            for: .flagsChanged,
+            keyCode: 59,
+            flags: .maskShift
+        )
+
+        #expect(modifierSummaries.isEmpty)
+        #expect(releaseSummaries == [.controlReleased(keyCode: 59)])
+    }
+}
+
+private struct KeyboardEventTapPermissionProvider: PermissionStatusProviding {
+    func snapshot() -> PermissionSnapshot {
+        PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)
     }
 }

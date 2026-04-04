@@ -90,7 +90,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
-    func keyboardEventIsMappedIntoEngineTransitionAndLogsFullChain() throws {
+    func controlTapCompletedIsMappedIntoEngineTransitionAndLogsFullChain() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
             settingsStore: KeyboardTestSettingsStore(initial: .configured),
@@ -114,14 +114,14 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         )
 
         try model.load()
-        service.emit(.controlPressed(keyCode: 59))
+        service.emit(.controlTapCompleted(keyCode: 59))
 
         #expect(model.lastInputBehavior == .controlPressed)
         #expect(model.currentEngineState == .voiceMode)
         #expect(model.lastEngineAction == .switchToVoice)
         #expect(model.eventTapStatus == .running)
-        #expect(model.lastRawKeyboardEventSummary == "leftControlDown(keyCode:59)")
-        #expect(model.logEntries.contains { $0.contains("raw_event=leftControlDown(keyCode:59)") })
+        #expect(model.lastRawKeyboardEventSummary == "leftControlTapCompleted(keyCode:59)")
+        #expect(model.logEntries.contains { $0.contains("raw_event=leftControlTapCompleted(keyCode:59)") })
         #expect(model.logEntries.contains { $0.contains("trigger=controlPressed") })
         #expect(model.logEntries.contains { $0.contains("target_state=voiceMode") })
         #expect(model.logEntries.contains { $0.contains("reason=pressed_control_switch_to_voice") })
@@ -129,7 +129,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
-    func leftControlReleaseDoesNotSwitchBackToPrimary() throws {
+    func leftControlPressAndReleaseWithoutTapCompletionDoesNotAdvanceEngine() throws {
         let service = StubKeyboardEventService()
         let bridge = RecordingToggleKeyboardEngineBridge()
         let model = VoiceSwitchAppModel(
@@ -145,17 +145,17 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         service.emit(.controlPressed(keyCode: 59))
         service.emit(.controlReleased(keyCode: 59))
 
-        #expect(bridge.recordedEvents == [.controlPressed])
-        #expect(model.currentEngineState == .voiceMode)
-        #expect(model.lastEngineAction == .switchToVoice)
-        #expect(model.lastInputBehavior == .controlPressed)
+        #expect(bridge.recordedEvents.isEmpty)
+        #expect(model.currentEngineState == .idlePrimary)
+        #expect(model.lastEngineAction == nil)
+        #expect(model.lastInputBehavior == nil)
         #expect(model.lastRawKeyboardEventSummary == "leftControlUp(keyCode:59)")
         #expect(model.logEntries.contains { $0.contains("Keyboard raw=leftControlUp(keyCode:59)") })
         #expect(!model.logEntries.contains { $0.contains("trigger=controlReleased") })
     }
 
     @Test
-    func appModelForwardsSecondLeftControlPressWithoutSynthesizingRelease() throws {
+    func appModelForwardsEachControlTapCompletedWithoutSynthesizingRelease() throws {
         let service = StubKeyboardEventService()
         let bridge = RecordingToggleKeyboardEngineBridge()
         let model = VoiceSwitchAppModel(
@@ -168,8 +168,8 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         )
 
         try model.load()
-        service.emit(.controlPressed(keyCode: 59))
-        service.emit(.controlPressed(keyCode: 59))
+        service.emit(.controlTapCompleted(keyCode: 59))
+        service.emit(.controlTapCompleted(keyCode: 59))
 
         #expect(bridge.recordedEvents == [.controlPressed, .controlPressed])
         #expect(model.currentEngineState == .idlePrimary)
@@ -179,7 +179,7 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
-    func secondLeftControlPressSwitchesBackToPrimary() throws {
+    func secondLeftControlTapSwitchesBackToPrimary() throws {
         let service = StubKeyboardEventService()
         let model = VoiceSwitchAppModel(
             settingsStore: KeyboardTestSettingsStore(initial: .configured),
@@ -191,8 +191,8 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         )
 
         try model.load()
-        service.emit(.controlPressed(keyCode: 59))
-        service.emit(.controlPressed(keyCode: 59))
+        service.emit(.controlTapCompleted(keyCode: 59))
+        service.emit(.controlTapCompleted(keyCode: 59))
 
         #expect(model.currentEngineState == .idlePrimary)
         #expect(model.lastEngineAction == .switchToPrimary)
@@ -526,7 +526,7 @@ private final class StubKeyboardEventService: KeyboardEventListening, @unchecked
         switch summary {
         case .listenerInactive, .tapDisabled:
             isRunning = false
-        case .tapRecoveryAttempted, .controlPressed, .controlReleased, .typingKey:
+        case .tapRecoveryAttempted, .controlPressed, .controlReleased, .controlTapCompleted, .typingKey:
             isRunning = true
         }
         handler?(summary)

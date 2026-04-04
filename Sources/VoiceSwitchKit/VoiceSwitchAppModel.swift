@@ -27,6 +27,15 @@ public final class VoiceSwitchAppModel {
         }
     }
 
+    private struct PendingProgrammaticInputSourceSwitch: Equatable {
+        let action: EngineAction
+        let targetInputSourceID: String
+        let requestedAt: Date
+    }
+
+    private static let inputSourceConfirmationTimeout: TimeInterval = 0.2
+    private static let voiceInputSourceSettleDelay: TimeInterval = 0.15
+
     public private(set) var availableInputSources: [InputSourceDescriptor]
     public private(set) var permissionSnapshot: PermissionSnapshot
     public private(set) var currentEngineState: EngineState
@@ -254,12 +263,16 @@ public final class VoiceSwitchAppModel {
     private let switchToVoiceScheduler: CooldownScheduling
     private let switchToPrimaryScheduler: CooldownScheduling
     private let cooldownScheduler: CooldownScheduling
+    private let inputSourceConfirmationScheduler: CooldownScheduling
+    private let voiceInputSourceSettleScheduler: CooldownScheduling
     private let nowProvider: @Sendable () -> Date
     private var pendingSettingsSaveTask: Task<Void, Never>?
     private var lastLoggedAutomationState: String?
     private var isInputObservationActive: Bool
     private var unavailablePrimaryIssue: String?
     private var unavailableVoiceIssue: String?
+    private var pendingProgrammaticInputSourceSwitch: PendingProgrammaticInputSourceSwitch?
+    private var pendingVoiceInputSourceSettleTargetInputSourceID: String?
 
     public init(
         settingsStore: SettingsStoring,
@@ -273,6 +286,8 @@ public final class VoiceSwitchAppModel {
         switchToVoiceScheduler: CooldownScheduling = CooldownScheduler(),
         switchToPrimaryScheduler: CooldownScheduling = CooldownScheduler(),
         cooldownScheduler: CooldownScheduling = CooldownScheduler(),
+        inputSourceConfirmationScheduler: CooldownScheduling = CooldownScheduler(),
+        voiceInputSourceSettleScheduler: CooldownScheduling = CooldownScheduler(),
         nowProvider: @escaping @Sendable () -> Date = Date.init
     ) {
         self.settingsStore = settingsStore
@@ -286,6 +301,8 @@ public final class VoiceSwitchAppModel {
         self.switchToVoiceScheduler = switchToVoiceScheduler
         self.switchToPrimaryScheduler = switchToPrimaryScheduler
         self.cooldownScheduler = cooldownScheduler
+        self.inputSourceConfirmationScheduler = inputSourceConfirmationScheduler
+        self.voiceInputSourceSettleScheduler = voiceInputSourceSettleScheduler
         self.nowProvider = nowProvider
         self.availableInputSources = []
         self.permissionSnapshot = PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)
@@ -311,6 +328,8 @@ public final class VoiceSwitchAppModel {
         self.isInputObservationActive = false
         self.unavailablePrimaryIssue = nil
         self.unavailableVoiceIssue = nil
+        self.pendingProgrammaticInputSourceSwitch = nil
+        self.pendingVoiceInputSourceSettleTargetInputSourceID = nil
     }
 
     public func load() throws {
@@ -408,6 +427,10 @@ public final class VoiceSwitchAppModel {
             switchToVoiceScheduler.cancel()
             switchToPrimaryScheduler.cancel()
             cooldownScheduler.cancel()
+            inputSourceConfirmationScheduler.cancel()
+            voiceInputSourceSettleScheduler.cancel()
+            pendingProgrammaticInputSourceSwitch = nil
+            pendingVoiceInputSourceSettleTargetInputSourceID = nil
         }
         updateAutomationState()
         scheduleAutoSave()
@@ -518,7 +541,7 @@ public final class VoiceSwitchAppModel {
         case .listenerInactive, .tapDisabled:
             eventTapStatus = .stopped
             keyboardMonitoringErrorMessage = summary.rawDescription
-        case .tapRecoveryAttempted, .controlPressed, .controlReleased, .typingKey:
+        case .tapRecoveryAttempted, .controlPressed, .controlReleased, .controlTapCompleted, .typingKey:
             eventTapStatus = .running
             keyboardMonitoringErrorMessage = nil
         }
@@ -551,6 +574,14 @@ public final class VoiceSwitchAppModel {
             appendLog(.diagnostic,
                 "Input source observed raw=\(rawDescription) currentInputSource=\(inputSourceID ?? "none") origin=\(origin)"
             )
+
+            if origin == "programmatic" {
+                _ = confirmPendingProgrammaticInputSourceSwitchIfNeeded(
+                    observedInputSourceID: inputSourceID,
+                    reason: "confirmed_observation"
+                )
+                return
+            }
 
             guard origin == "manual" else {
                 return
@@ -634,8 +665,12 @@ public final class VoiceSwitchAppModel {
 
     private func keyboardBehaviorToAdvance(for summary: KeyboardEventSummary) -> InputBehavior? {
         switch summary {
+        case .controlPressed:
+            return nil
         case .controlReleased:
             return nil
+        case .controlTapCompleted:
+            return summary.mappedBehavior
         default:
             return summary.mappedBehavior
         }
@@ -762,12 +797,37 @@ public final class VoiceSwitchAppModel {
 
         do {
             try inputSourceSwitchingService.switchToInputSource(id: targetInputSourceID)
+            let requestedAt = nowProvider()
             lastProgrammaticSwitchTargetInputSourceID = targetInputSourceID
-            lastProgrammaticSwitchAt = nowProvider()
-            appendLog(.user, action == .switchToVoice ? "已切到语音输入法。" : "已切回普通输入法。")
-            appendLog(.diagnostic,
-                "trigger=input_source_switch reason=executed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=success"
+            lastProgrammaticSwitchAt = requestedAt
+            pendingProgrammaticInputSourceSwitch = PendingProgrammaticInputSourceSwitch(
+                action: action,
+                targetInputSourceID: targetInputSourceID,
+                requestedAt: requestedAt
             )
+            pendingVoiceInputSourceSettleTargetInputSourceID = nil
+            inputSourceConfirmationScheduler.cancel()
+            voiceInputSourceSettleScheduler.cancel()
+
+            appendLog(.diagnostic,
+                "trigger=input_source_switch reason=request_sent source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=requested"
+            )
+
+            do {
+                let confirmedInputSourceID = try inputSourceSwitchingService.currentSelectedInputSourceID()
+                if confirmPendingProgrammaticInputSourceSwitchIfNeeded(
+                    observedInputSourceID: confirmedInputSourceID,
+                    reason: "confirmed_immediate_read"
+                ) {
+                    return
+                }
+            } catch {
+                appendLog(.diagnostic,
+                    "trigger=input_source_switch reason=confirmation_read_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=unknown target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))"
+                )
+            }
+
+            scheduleInputSourceConfirmationTimeout()
         } catch {
             appendLog(.user, "输入法切换失败：\(error.localizedDescription)")
             appendLog(.diagnostic,
@@ -789,6 +849,102 @@ public final class VoiceSwitchAppModel {
         lastProgrammaticSwitchTargetInputSourceID = nil
         lastProgrammaticSwitchAt = nil
         return "programmatic"
+    }
+
+    private func confirmPendingProgrammaticInputSourceSwitchIfNeeded(
+        observedInputSourceID: String?,
+        reason: String
+    ) -> Bool {
+        guard
+            let pendingProgrammaticInputSourceSwitch,
+            observedInputSourceID == pendingProgrammaticInputSourceSwitch.targetInputSourceID
+        else {
+            return false
+        }
+
+        inputSourceConfirmationScheduler.cancel()
+        self.pendingProgrammaticInputSourceSwitch = nil
+
+        appendLog(.diagnostic,
+            "trigger=input_source_switch reason=\(reason) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(pendingProgrammaticInputSourceSwitch.action.rawValue) current_input_source=\(observedInputSourceID ?? "none") target_input_source=\(pendingProgrammaticInputSourceSwitch.targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=confirmed"
+        )
+
+        if pendingProgrammaticInputSourceSwitch.action == .switchToVoice {
+            scheduleVoiceInputSourceSettle(targetInputSourceID: pendingProgrammaticInputSourceSwitch.targetInputSourceID)
+        } else {
+            appendLog(.user, "已切回普通输入法。")
+        }
+
+        return true
+    }
+
+    private func scheduleInputSourceConfirmationTimeout() {
+        guard let pendingProgrammaticInputSourceSwitch else {
+            return
+        }
+
+        let deadline = pendingProgrammaticInputSourceSwitch.requestedAt.addingTimeInterval(Self.inputSourceConfirmationTimeout)
+        inputSourceConfirmationScheduler.schedule(deadline: deadline) { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.handleInputSourceConfirmationTimeout(for: pendingProgrammaticInputSourceSwitch)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.handleInputSourceConfirmationTimeout(for: pendingProgrammaticInputSourceSwitch)
+                }
+            }
+        }
+    }
+
+    private func handleInputSourceConfirmationTimeout(for expectedSwitch: PendingProgrammaticInputSourceSwitch) {
+        guard pendingProgrammaticInputSourceSwitch == expectedSwitch else {
+            return
+        }
+
+        pendingProgrammaticInputSourceSwitch = nil
+        lastProgrammaticSwitchTargetInputSourceID = nil
+        lastProgrammaticSwitchAt = nil
+        appendLog(.diagnostic,
+            "trigger=input_source_switch reason=confirmation_timeout source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(expectedSwitch.action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(expectedSwitch.targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=unconfirmed"
+        )
+    }
+
+    private func scheduleVoiceInputSourceSettle(targetInputSourceID: String) {
+        pendingVoiceInputSourceSettleTargetInputSourceID = targetInputSourceID
+        voiceInputSourceSettleScheduler.cancel()
+        let deadline = nowProvider().addingTimeInterval(Self.voiceInputSourceSettleDelay)
+        voiceInputSourceSettleScheduler.schedule(deadline: deadline) { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.completeVoiceInputSourceSettle(targetInputSourceID: targetInputSourceID)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.completeVoiceInputSourceSettle(targetInputSourceID: targetInputSourceID)
+                }
+            }
+        }
+    }
+
+    private func completeVoiceInputSourceSettle(targetInputSourceID: String) {
+        guard pendingVoiceInputSourceSettleTargetInputSourceID == targetInputSourceID else {
+            return
+        }
+
+        pendingVoiceInputSourceSettleTargetInputSourceID = nil
+        appendLog(.user, "已切到语音输入法。")
+        appendLog(.diagnostic,
+            "trigger=input_source_switch reason=voice_input_source_settled source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=switchToVoice current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=settled"
+        )
     }
 
     private func scheduleCooldown(delay: TimeInterval) {

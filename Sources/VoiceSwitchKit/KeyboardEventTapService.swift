@@ -4,6 +4,7 @@ import Foundation
 public enum KeyboardEventSummary: Equatable, Sendable {
     case controlPressed(keyCode: Int)
     case controlReleased(keyCode: Int)
+    case controlTapCompleted(keyCode: Int)
     case typingKey(keyCode: Int, category: TypingKeyCategory)
     case tapDisabled(reason: String)
     case tapRecoveryAttempted(reason: String)
@@ -11,8 +12,10 @@ public enum KeyboardEventSummary: Equatable, Sendable {
 
     public var mappedBehavior: InputBehavior? {
         switch self {
-        case .controlPressed:
+        case .controlTapCompleted:
             return .controlPressed
+        case .controlPressed:
+            return nil
         case .controlReleased:
             return .controlReleased
         case let .typingKey(_, category):
@@ -39,6 +42,8 @@ public enum KeyboardEventSummary: Equatable, Sendable {
             return "leftControlDown(keyCode:\(keyCode))"
         case let .controlReleased(keyCode):
             return "leftControlUp(keyCode:\(keyCode))"
+        case let .controlTapCompleted(keyCode):
+            return "leftControlTapCompleted(keyCode:\(keyCode))"
         case let .typingKey(keyCode, category):
             return "typingKey(keyCode:\(keyCode),category:\(category.rawValue))"
         case let .tapDisabled(reason):
@@ -56,6 +61,9 @@ public final class KeyboardEventTapService: KeyboardEventListening {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var eventHandler: (@Sendable (KeyboardEventSummary) -> Void)?
+    private var controlIsDown = false
+    private var controlTapCandidate = false
+    private var sawOtherKeyDuringControl = false
 
     public var isRunning: Bool {
         eventTap != nil
@@ -148,11 +156,9 @@ public final class KeyboardEventTapService: KeyboardEventListening {
         }
 
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        guard let summary = Self.summary(for: type, keyCode: keyCode, flags: event.flags) else {
-            return
+        for summary in processedSummaries(for: type, keyCode: keyCode, flags: event.flags) {
+            emit(summary)
         }
-
-        emit(summary)
     }
 
     func reenableTap(reason: String) {
@@ -186,6 +192,36 @@ public final class KeyboardEventTapService: KeyboardEventListening {
             return .tapDisabled(reason: "userInput")
         default:
             return nil
+        }
+    }
+
+    func processedSummaries(for type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> [KeyboardEventSummary] {
+        switch type {
+        case .flagsChanged:
+            if Self.isLeftControlKey(keyCode) {
+                return processLeftControlFlagsChanged(keyCode: keyCode)
+            }
+
+            if controlIsDown {
+                controlTapCandidate = false
+                sawOtherKeyDuringControl = true
+            }
+            return []
+        case .keyDown:
+            if controlIsDown {
+                controlTapCandidate = false
+                sawOtherKeyDuringControl = true
+            }
+
+            guard let summary = Self.summary(for: type, keyCode: keyCode, flags: flags) else {
+                return []
+            }
+            return [summary]
+        default:
+            guard let summary = Self.summary(for: type, keyCode: keyCode, flags: flags) else {
+                return []
+            }
+            return [summary]
         }
     }
 
@@ -224,5 +260,27 @@ public final class KeyboardEventTapService: KeyboardEventListening {
 
     private func emit(_ summary: KeyboardEventSummary) {
         eventHandler?(summary)
+    }
+
+    private func processLeftControlFlagsChanged(keyCode: CGKeyCode) -> [KeyboardEventSummary] {
+        let keyCode = Int(keyCode)
+
+        if !controlIsDown {
+            controlIsDown = true
+            controlTapCandidate = true
+            sawOtherKeyDuringControl = false
+            return [.controlPressed(keyCode: keyCode)]
+        }
+
+        controlIsDown = false
+        let shouldEmitTapCompletion = controlTapCandidate && !sawOtherKeyDuringControl
+        controlTapCandidate = false
+        sawOtherKeyDuringControl = false
+
+        if shouldEmitTapCompletion {
+            return [.controlReleased(keyCode: keyCode), .controlTapCompleted(keyCode: keyCode)]
+        }
+
+        return [.controlReleased(keyCode: keyCode)]
     }
 }
