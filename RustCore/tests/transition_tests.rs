@@ -6,69 +6,65 @@ use voiceswitch_core::state::EngineState;
 use voiceswitch_core::timer::EngineTimerKind;
 
 #[test]
-fn option_press_moves_idle_to_option_pending() {
-    let configuration = EngineConfiguration {
-        option_pending_window: 0.42,
-        ..EngineConfiguration::default()
-    };
+fn option_press_moves_idle_primary_to_voice_held_and_switches_to_voice() {
     let result = transition(
         EngineState::IdlePrimary,
         InputBehavior::OptionPressed,
-        &configuration,
-    );
-
-    assert_eq!(result.state, EngineState::OptionPending);
-    assert_eq!(result.action, EngineAction::NoOp);
-    assert_eq!(result.diagnostic.trigger, "optionPressed");
-    assert_eq!(result.diagnostic.reason, "entered_option_pending");
-    assert_eq!(result.timer.as_ref().map(|timer| timer.kind), Some(EngineTimerKind::OptionPendingWindow));
-    assert_eq!(result.timer.as_ref().map(|timer| timer.delay_seconds), Some(0.42));
-}
-
-#[test]
-fn option_window_expired_moves_option_pending_to_voice_active() {
-    let result = transition(
-        EngineState::OptionPending,
-        InputBehavior::OptionWindowExpired,
         &EngineConfiguration::default(),
     );
 
-    assert_eq!(result.state, EngineState::VoiceActive);
+    assert_eq!(result.state, EngineState::VoiceHeld);
     assert_eq!(result.action, EngineAction::SwitchToVoice);
+    assert_eq!(result.diagnostic.trigger, "optionPressed");
+    assert_eq!(result.diagnostic.reason, "pressed_option_switch_to_voice");
+    assert_eq!(result.timer, None);
 }
 
 #[test]
-fn typing_detected_moves_voice_active_back_to_idle_primary() {
+fn option_release_moves_voice_held_back_to_idle_primary_and_switches_to_primary() {
     let result = transition(
-        EngineState::VoiceActive,
-        InputBehavior::TypingDetected,
+        EngineState::VoiceHeld,
+        InputBehavior::OptionReleased,
         &EngineConfiguration::default(),
     );
 
     assert_eq!(result.state, EngineState::IdlePrimary);
     assert_eq!(result.action, EngineAction::SwitchToPrimary);
+    assert_eq!(result.diagnostic.trigger, "optionReleased");
+    assert_eq!(result.diagnostic.reason, "released_option_switch_to_primary");
+    assert_eq!(result.timer, None);
 }
 
 #[test]
-fn manual_switch_enters_cooldown() {
+fn manual_switch_enters_cooldown_with_configured_timer() {
     let configuration = EngineConfiguration {
         cooldown_duration: 9.0,
         ..EngineConfiguration::default()
     };
     let result = transition(
-        EngineState::IdlePrimary,
+        EngineState::VoiceHeld,
         InputBehavior::ManualSwitchDetected,
         &configuration,
     );
 
     assert_eq!(result.state, EngineState::Cooldown);
     assert_eq!(result.action, EngineAction::EnterCooldown);
-    assert_eq!(result.timer.as_ref().map(|timer| timer.kind), Some(EngineTimerKind::Cooldown));
-    assert_eq!(result.timer.as_ref().map(|timer| timer.delay_seconds), Some(9.0));
+    assert_eq!(
+        result.timer.as_ref().map(|timer| timer.kind),
+        Some(EngineTimerKind::Cooldown)
+    );
+    assert_eq!(
+        result.timer.as_ref().map(|timer| timer.delay_seconds),
+        Some(9.0)
+    );
+    assert_eq!(
+        result.diagnostic.reason,
+        "entered_cooldown_after_manual_switch"
+    );
 }
 
 #[test]
-fn cooldown_expired_returns_to_idle_primary() {
+fn cooldown_expired_returns_to_idle_primary_without_switch_action() {
     let result = transition(
         EngineState::Cooldown,
         InputBehavior::CooldownExpired,
@@ -77,79 +73,31 @@ fn cooldown_expired_returns_to_idle_primary() {
 
     assert_eq!(result.state, EngineState::IdlePrimary);
     assert_eq!(result.action, EngineAction::NoOp);
+    assert_eq!(result.diagnostic.reason, "cooldown_expired");
 }
 
 #[test]
-fn option_release_before_window_expiry_returns_to_idle_primary() {
+fn typing_key_events_do_not_drive_main_path_when_voice_is_held() {
     let result = transition(
-        EngineState::OptionPending,
-        InputBehavior::OptionReleased,
+        EngineState::VoiceHeld,
+        InputBehavior::TypingKeyLetters,
         &EngineConfiguration::default(),
     );
 
-    assert_eq!(result.state, EngineState::IdlePrimary);
+    assert_eq!(result.state, EngineState::VoiceHeld);
     assert_eq!(result.action, EngineAction::NoOp);
-    assert_eq!(result.diagnostic.reason, "released_before_option_window_expired");
+    assert_eq!(result.diagnostic.reason, "ignored_event_in_current_state");
 }
 
 #[test]
-fn voice_exit_delay_elapsed_returns_voice_active_to_idle_primary() {
+fn cooldown_ignores_option_press_until_expired() {
     let result = transition(
-        EngineState::VoiceActive,
-        InputBehavior::VoiceExitDelayElapsed,
+        EngineState::Cooldown,
+        InputBehavior::OptionPressed,
         &EngineConfiguration::default(),
     );
 
-    assert_eq!(result.state, EngineState::IdlePrimary);
-    assert_eq!(result.action, EngineAction::SwitchToPrimary);
-    assert_eq!(result.diagnostic.reason, "voice_exit_delay_elapsed");
-}
-
-#[test]
-fn option_release_while_voice_active_uses_configured_voice_exit_delay() {
-    let configuration = EngineConfiguration {
-        voice_exit_delay: 1.75,
-        ..EngineConfiguration::default()
-    };
-    let result = transition(
-        EngineState::VoiceActive,
-        InputBehavior::OptionReleased,
-        &configuration,
-    );
-
-    assert_eq!(result.state, EngineState::VoiceActive);
+    assert_eq!(result.state, EngineState::Cooldown);
     assert_eq!(result.action, EngineAction::NoOp);
-    assert_eq!(result.timer.as_ref().map(|timer| timer.kind), Some(EngineTimerKind::VoiceExitDelay));
-    assert_eq!(result.timer.as_ref().map(|timer| timer.delay_seconds), Some(1.75));
-}
-
-#[test]
-fn whitelisted_typing_category_returns_to_idle_primary() {
-    let configuration = EngineConfiguration::default();
-    let result = transition(
-        EngineState::VoiceActive,
-        InputBehavior::TypingKeyLetters,
-        &configuration,
-    );
-
-    assert_eq!(result.state, EngineState::IdlePrimary);
-    assert_eq!(result.action, EngineAction::SwitchToPrimary);
-    assert_eq!(result.diagnostic.reason, "typing_key_whitelisted_letters");
-}
-
-#[test]
-fn non_whitelisted_typing_category_is_ignored() {
-    let configuration = EngineConfiguration {
-        typing_key_whitelist: vec![voiceswitch_core::config::TypingKeyCategory::Numbers],
-        ..EngineConfiguration::default()
-    };
-    let result = transition(
-        EngineState::VoiceActive,
-        InputBehavior::TypingKeyLetters,
-        &configuration,
-    );
-
-    assert_eq!(result.state, EngineState::VoiceActive);
-    assert_eq!(result.action, EngineAction::NoOp);
-    assert_eq!(result.diagnostic.reason, "typing_key_not_whitelisted_letters");
+    assert_eq!(result.diagnostic.reason, "ignored_event_in_current_state");
 }

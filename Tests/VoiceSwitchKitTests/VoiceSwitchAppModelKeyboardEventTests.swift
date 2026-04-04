@@ -30,15 +30,15 @@ struct VoiceSwitchAppModelKeyboardEventTests {
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubKeyboardEngineBridge(
                 result: EngineTransitionResult(
-                    state: .optionPending,
-                    action: .noOp,
+                    state: .voiceHeld,
+                    action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "optionPressed",
-                        reason: "entered_option_pending",
+                        reason: "pressed_option_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .optionPending
+                        targetState: .voiceHeld
                     ),
-                    timer: EngineTimer(kind: .optionPendingWindow, delaySeconds: 0.42)
+                    timer: EngineTimer(kind: .voiceActivationDelay, delaySeconds: 0.05)
                 )
             ),
             keyboardEventService: service
@@ -48,15 +48,15 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         service.emit(.optionPressed(keyCode: 58))
 
         #expect(model.lastInputBehavior == .optionPressed)
-        #expect(model.currentEngineState == .optionPending)
-        #expect(model.lastEngineAction == .noOp)
+        #expect(model.currentEngineState == .voiceHeld)
+        #expect(model.lastEngineAction == .switchToVoice)
         #expect(model.eventTapStatus == .running)
         #expect(model.lastRawKeyboardEventSummary == "optionDown(keyCode:58)")
         #expect(model.logEntries.contains { $0.contains("raw_event=optionDown(keyCode:58)") })
         #expect(model.logEntries.contains { $0.contains("trigger=optionPressed") })
-        #expect(model.logEntries.contains { $0.contains("target_state=optionPending") })
-        #expect(model.logEntries.contains { $0.contains("reason=entered_option_pending") })
-        #expect(model.logEntries.contains { $0.contains("timer_delay_seconds=0.42") })
+        #expect(model.logEntries.contains { $0.contains("target_state=voiceHeld") })
+        #expect(model.logEntries.contains { $0.contains("reason=pressed_option_switch_to_voice") })
+        #expect(model.logEntries.contains { $0.contains("timer_delay_seconds=0.05") })
     }
 
     @Test
@@ -136,13 +136,13 @@ struct VoiceSwitchAppModelKeyboardEventTests {
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubKeyboardEngineBridge(
                 result: EngineTransitionResult(
-                    state: .optionPending,
-                    action: .noOp,
+                    state: .voiceHeld,
+                    action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "optionPressed",
-                        reason: "entered_option_pending",
+                        reason: "pressed_option_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .optionPending
+                        targetState: .voiceHeld
                     )
                 )
             ),

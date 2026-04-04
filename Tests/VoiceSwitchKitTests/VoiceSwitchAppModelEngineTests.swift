@@ -12,13 +12,13 @@ struct VoiceSwitchAppModelEngineTests {
             permissionProvider: EngineTestPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
             engineBridge: StubEngineBridge(
                 result: EngineTransitionResult(
-                    state: .optionPending,
-                    action: .noOp,
+                    state: .voiceHeld,
+                    action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
                         trigger: "optionPressed",
-                        reason: "entered_option_pending",
+                        reason: "pressed_option_switch_to_voice",
                         sourceState: .idlePrimary,
-                        targetState: .optionPending
+                        targetState: .voiceHeld
                     )
                 )
             )
@@ -26,11 +26,11 @@ struct VoiceSwitchAppModelEngineTests {
 
         try model.sendTestEvent(.optionPressed)
 
-        #expect(model.currentEngineState == .optionPending)
+        #expect(model.currentEngineState == .voiceHeld)
         #expect(model.lastInputBehavior == .optionPressed)
-        #expect(model.lastEngineAction == .noOp)
+        #expect(model.lastEngineAction == .switchToVoice)
         #expect(model.logEntries.contains { $0.contains("optionPressed") })
-        #expect(model.logEntries.contains { $0.contains("optionPending") })
+        #expect(model.logEntries.contains { $0.contains("voiceHeld") })
     }
 }
 

@@ -7,7 +7,7 @@ struct RustEngineBridgeTests {
     func bridgeDecodesTransitionResult() throws {
         let runner = StubRustCommandRunner(
             output: """
-            {"state":"optionPending","action":"noOp","diagnostic":{"trigger":"optionPressed","reason":"entered_option_pending","sourceState":"idlePrimary","targetState":"optionPending"},"timer":{"kind":"optionPendingWindow","delaySeconds":0.25}}
+            {"state":"voiceHeld","action":"switchToVoice","diagnostic":{"trigger":"optionPressed","reason":"pressed_option_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceHeld"},"timer":{"kind":"voiceActivationDelay","delaySeconds":0.05}}
             """.data(using: .utf8)!
         )
 
@@ -18,21 +18,21 @@ struct RustEngineBridgeTests {
             configuration: EngineConfiguration()
         )
 
-        #expect(result.state == .optionPending)
-        #expect(result.action == .noOp)
+        #expect(result.state == .voiceHeld)
+        #expect(result.action == .switchToVoice)
         #expect(result.diagnostic.trigger == "optionPressed")
-        #expect(result.diagnostic.reason == "entered_option_pending")
+        #expect(result.diagnostic.reason == "pressed_option_switch_to_voice")
         #expect(result.diagnostic.sourceState == .idlePrimary)
-        #expect(result.diagnostic.targetState == .optionPending)
-        #expect(result.timer?.kind == .optionPendingWindow)
-        #expect(result.timer?.delaySeconds == 0.25)
+        #expect(result.diagnostic.targetState == .voiceHeld)
+        #expect(result.timer?.kind == .voiceActivationDelay)
+        #expect(result.timer?.delaySeconds == 0.05)
     }
 
     @Test
     func bridgePassesConfigurationToRunner() throws {
         let runner = RecordingRustCommandRunner(
             output: """
-            {"state":"optionPending","action":"noOp","diagnostic":{"trigger":"optionPressed","reason":"entered_option_pending","sourceState":"idlePrimary","targetState":"optionPending"}}
+            {"state":"voiceHeld","action":"switchToVoice","diagnostic":{"trigger":"optionPressed","reason":"pressed_option_switch_to_voice","sourceState":"idlePrimary","targetState":"voiceHeld"}}
             """.data(using: .utf8)!
         )
 
@@ -41,15 +41,17 @@ struct RustEngineBridgeTests {
             from: .idlePrimary,
             event: .optionPressed,
             configuration: EngineConfiguration(
-                optionPendingWindow: 0.25,
+                voiceActivationDelay: 0.25,
+                releaseReturnDelay: 0.1,
                 cooldownDuration: 7,
-                voiceExitDelay: 1.2
+                typingKeyWhitelist: [.letters, .space]
             )
         )
 
-        #expect(runner.lastConfiguration?.optionPendingWindow == 0.25)
+        #expect(runner.lastConfiguration?.voiceActivationDelay == 0.25)
+        #expect(runner.lastConfiguration?.releaseReturnDelay == 0.1)
         #expect(runner.lastConfiguration?.cooldownDuration == 7)
-        #expect(runner.lastConfiguration?.voiceExitDelay == 1.2)
+        #expect(runner.lastConfiguration?.typingKeyWhitelist == [.letters, .space])
     }
 
     @Test
@@ -64,20 +66,20 @@ struct RustEngineBridgeTests {
         let ffiBridge = FFIRustEngineBridge()
         let cliBridge = CLIRustEngineBridge()
         let configuration = EngineConfiguration(
-            optionPendingWindow: 0.32,
+            voiceActivationDelay: 0.05,
+            releaseReturnDelay: 0.03,
             cooldownDuration: 6,
-            voiceExitDelay: 1.1,
             typingKeyWhitelist: [.letters, .space]
         )
 
         let ffiResult = try ffiBridge.transition(
-            from: .voiceActive,
-            event: .typingKeyLetters,
+            from: .idlePrimary,
+            event: .optionPressed,
             configuration: configuration
         )
         let cliResult = try cliBridge.transition(
-            from: .voiceActive,
-            event: .typingKeyLetters,
+            from: .idlePrimary,
+            event: .optionPressed,
             configuration: configuration
         )
 
@@ -108,9 +110,9 @@ struct RustEngineBridgeTests {
                 configuration: EngineConfiguration()
             )
 
-            #expect(result.state == .optionPending)
-            #expect(result.action == .noOp)
-            #expect(result.diagnostic.reason == "entered_option_pending")
+            #expect(result.state == .voiceHeld)
+            #expect(result.action == .switchToVoice)
+            #expect(result.diagnostic.reason == "pressed_option_switch_to_voice")
         }
     }
 
@@ -124,30 +126,21 @@ struct RustEngineBridgeTests {
             event: .optionPressed,
             configuration: configuration
         )
-        #expect(optionPressed.state == .optionPending)
-        #expect(optionPressed.action == .noOp)
-        #expect(optionPressed.diagnostic.reason == "entered_option_pending")
+        #expect(optionPressed.state == .voiceHeld)
+        #expect(optionPressed.action == .switchToVoice)
+        #expect(optionPressed.diagnostic.reason == "pressed_option_switch_to_voice")
 
-        let optionExpired = try bridge.transition(
+        let optionReleased = try bridge.transition(
             from: optionPressed.state,
-            event: .optionWindowExpired,
+            event: .optionReleased,
             configuration: configuration
         )
-        #expect(optionExpired.state == .voiceActive)
-        #expect(optionExpired.action == .switchToVoice)
-        #expect(optionExpired.diagnostic.reason == "activated_voice_after_option_window")
-
-        let typing = try bridge.transition(
-            from: optionExpired.state,
-            event: .typingKeyLetters,
-            configuration: configuration
-        )
-        #expect(typing.state == .idlePrimary)
-        #expect(typing.action == .switchToPrimary)
-        #expect(typing.diagnostic.reason == "typing_key_whitelisted_letters")
+        #expect(optionReleased.state == .idlePrimary)
+        #expect(optionReleased.action == .switchToPrimary)
+        #expect(optionReleased.diagnostic.reason == "released_option_switch_to_primary")
 
         let manualSwitch = try bridge.transition(
-            from: typing.state,
+            from: optionReleased.state,
             event: .manualSwitchDetected,
             configuration: configuration
         )

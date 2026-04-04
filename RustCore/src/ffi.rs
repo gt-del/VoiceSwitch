@@ -11,9 +11,8 @@ use std::os::raw::c_char;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VSState {
     IdlePrimary = 0,
-    OptionPending = 1,
-    VoiceActive = 2,
-    Cooldown = 3,
+    VoiceHeld = 1,
+    Cooldown = 2,
 }
 
 #[repr(C)]
@@ -21,16 +20,14 @@ pub enum VSState {
 pub enum VSEvent {
     OptionPressed = 0,
     OptionReleased = 1,
-    OptionWindowExpired = 2,
-    TypingDetected = 3,
-    TypingKeyLetters = 4,
-    TypingKeyNumbers = 5,
-    TypingKeySpace = 6,
-    TypingKeyDelete = 7,
-    TypingKeyReturnKey = 8,
-    ManualSwitchDetected = 9,
-    CooldownExpired = 10,
-    VoiceExitDelayElapsed = 11,
+    TypingDetected = 2,
+    TypingKeyLetters = 3,
+    TypingKeyNumbers = 4,
+    TypingKeySpace = 5,
+    TypingKeyDelete = 6,
+    TypingKeyReturnKey = 7,
+    ManualSwitchDetected = 8,
+    CooldownExpired = 9,
 }
 
 #[repr(C)]
@@ -45,8 +42,8 @@ pub enum VSAction {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VSTimerKind {
-    OptionPendingWindow = 0,
-    VoiceExitDelay = 1,
+    VoiceActivationDelay = 0,
+    ReleaseReturnDelay = 1,
     Cooldown = 2,
 }
 
@@ -62,9 +59,9 @@ pub enum VSErrorCode {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct VSConfiguration {
-    pub option_pending_window: f64,
+    pub voice_activation_delay: f64,
+    pub release_return_delay: f64,
     pub cooldown_duration: f64,
-    pub voice_exit_delay: f64,
     pub allow_letters: bool,
     pub allow_numbers: bool,
     pub allow_space: bool,
@@ -207,9 +204,9 @@ fn build_configuration(configuration: VSConfiguration) -> EngineConfiguration {
     }
 
     EngineConfiguration {
-        option_pending_window: configuration.option_pending_window,
+        voice_activation_delay: configuration.voice_activation_delay,
+        release_return_delay: configuration.release_return_delay,
         cooldown_duration: configuration.cooldown_duration,
-        voice_exit_delay: configuration.voice_exit_delay,
         typing_key_whitelist,
     }
 }
@@ -218,8 +215,7 @@ impl From<VSState> for EngineState {
     fn from(value: VSState) -> Self {
         match value {
             VSState::IdlePrimary => Self::IdlePrimary,
-            VSState::OptionPending => Self::OptionPending,
-            VSState::VoiceActive => Self::VoiceActive,
+            VSState::VoiceHeld => Self::VoiceHeld,
             VSState::Cooldown => Self::Cooldown,
         }
     }
@@ -229,8 +225,7 @@ impl From<EngineState> for VSState {
     fn from(value: EngineState) -> Self {
         match value {
             EngineState::IdlePrimary => Self::IdlePrimary,
-            EngineState::OptionPending => Self::OptionPending,
-            EngineState::VoiceActive => Self::VoiceActive,
+            EngineState::VoiceHeld => Self::VoiceHeld,
             EngineState::Cooldown => Self::Cooldown,
         }
     }
@@ -241,7 +236,6 @@ impl From<VSEvent> for InputBehavior {
         match value {
             VSEvent::OptionPressed => Self::OptionPressed,
             VSEvent::OptionReleased => Self::OptionReleased,
-            VSEvent::OptionWindowExpired => Self::OptionWindowExpired,
             VSEvent::TypingDetected => Self::TypingDetected,
             VSEvent::TypingKeyLetters => Self::TypingKeyLetters,
             VSEvent::TypingKeyNumbers => Self::TypingKeyNumbers,
@@ -250,7 +244,6 @@ impl From<VSEvent> for InputBehavior {
             VSEvent::TypingKeyReturnKey => Self::TypingKeyReturnKey,
             VSEvent::ManualSwitchDetected => Self::ManualSwitchDetected,
             VSEvent::CooldownExpired => Self::CooldownExpired,
-            VSEvent::VoiceExitDelayElapsed => Self::VoiceExitDelayElapsed,
         }
     }
 }
@@ -279,8 +272,8 @@ impl From<EngineTimer> for VSTimer {
 impl From<EngineTimerKind> for VSTimerKind {
     fn from(value: EngineTimerKind) -> Self {
         match value {
-            EngineTimerKind::OptionPendingWindow => Self::OptionPendingWindow,
-            EngineTimerKind::VoiceExitDelay => Self::VoiceExitDelay,
+            EngineTimerKind::VoiceActivationDelay => Self::VoiceActivationDelay,
+            EngineTimerKind::ReleaseReturnDelay => Self::ReleaseReturnDelay,
             EngineTimerKind::Cooldown => Self::Cooldown,
         }
     }

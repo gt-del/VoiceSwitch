@@ -13,9 +13,9 @@ struct UserDefaultsSettingsStoreTests {
             primaryInputSourceID: "com.apple.keylayout.ABC",
             voiceInputSourceID: "com.example.voice",
             launchAtLoginEnabled: true,
-            optionPendingWindow: 0.25,
+            voiceActivationDelay: 0.25,
+            releaseReturnDelay: 0.1,
             cooldownDuration: 7,
-            voiceExitDelay: 1.2
         )
 
         store.save(expected)
@@ -26,25 +26,28 @@ struct UserDefaultsSettingsStoreTests {
     }
 
     @Test
-    func loadUsesExpandedVoiceExitDelayDefault() {
+    func loadUsesNewDelayDefaults() {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults)
         let actual = store.load()
 
-        #expect(actual.voiceExitDelay == 10)
+        #expect(actual.voiceActivationDelay == 0)
+        #expect(actual.releaseReturnDelay == 0)
     }
 
     @Test
-    func loadMigratesLegacyVoiceExitDelayDefault() {
+    func loadMigratesLegacyDelayKeys() {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
+        defaults.set(0.18, forKey: "voiceSwitch.optionPendingWindow")
         defaults.set(0.8, forKey: "voiceSwitch.voiceExitDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults)
         let actual = store.load()
 
-        #expect(actual.voiceExitDelay == 10)
+        #expect(actual.voiceActivationDelay == 0.18)
+        #expect(actual.releaseReturnDelay == 0.8)
     }
 }

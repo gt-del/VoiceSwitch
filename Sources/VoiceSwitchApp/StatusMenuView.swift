@@ -13,7 +13,7 @@ struct StatusMenuView: View {
             Text("Primary: \(model.selectedPrimaryInputSourceID ?? "Not Set")")
             Text("Voice: \(model.selectedVoiceInputSourceID ?? "Not Set")")
             Text("Launch at Login: \(model.launchAtLoginEnabled ? "On" : "Off")")
-            Text("Engine State: \(model.currentEngineState.rawValue)")
+            Text("Engine State: \(displayName(for: model.currentEngineState))")
             Text("Last Action: \(model.lastEngineAction?.rawValue ?? "none")")
 
             if let issue = model.configurationIssues.first {
@@ -42,6 +42,17 @@ struct StatusMenuView: View {
         .frame(width: 280)
         .task {
             try? model.load()
+        }
+    }
+
+    private func displayName(for state: EngineState) -> String {
+        switch state {
+        case .idlePrimary:
+            return "Typing"
+        case .voiceHeld:
+            return "Voice Held"
+        case .cooldown:
+            return "Cooldown"
         }
     }
 }

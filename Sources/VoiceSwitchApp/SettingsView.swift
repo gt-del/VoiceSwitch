@@ -63,17 +63,21 @@ struct SettingsView: View {
             }
 
             Section("Engine Parameters") {
-                Stepper(value: $model.optionPendingWindow, in: 0.05...1.0, step: 0.05) {
-                    Text("Option Pending Window: \(model.optionPendingWindow, format: .number.precision(.fractionLength(2)))s")
+                Stepper(value: $model.voiceActivationDelay, in: 0.0...0.3, step: 0.01) {
+                    Text("Voice Activation Delay: \(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
                 }
 
                 Stepper(value: $model.cooldownDuration, in: 0.5...30.0, step: 0.5) {
                     Text("Cooldown Duration: \(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
                 }
 
-                Stepper(value: $model.voiceExitDelay, in: 0.0...30.0, step: 0.5) {
-                    Text("Voice Exit Delay: \(model.voiceExitDelay, format: .number.precision(.fractionLength(1)))s")
+                Stepper(value: $model.releaseReturnDelay, in: 0.0...0.3, step: 0.01) {
+                    Text("Release Return Delay: \(model.releaseReturnDelay, format: .number.precision(.fractionLength(2)))s")
                 }
+
+                Text("按住 Option 切到 Voice IME，松开 Option 切回 Primary IME。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Text("Changes affect new events immediately. Save persists them.")
                     .font(.caption)

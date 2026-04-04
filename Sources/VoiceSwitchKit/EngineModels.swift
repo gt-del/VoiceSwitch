@@ -2,15 +2,13 @@ import Foundation
 
 public enum EngineState: String, Codable, CaseIterable, Sendable {
     case idlePrimary
-    case optionPending
-    case voiceActive
+    case voiceHeld
     case cooldown
 }
 
 public enum InputBehavior: String, Codable, CaseIterable, Sendable {
     case optionPressed
     case optionReleased
-    case optionWindowExpired
     case typingDetected
     case typingKeyLetters
     case typingKeyNumbers
@@ -19,7 +17,6 @@ public enum InputBehavior: String, Codable, CaseIterable, Sendable {
     case typingKeyReturnKey
     case manualSwitchDetected
     case cooldownExpired
-    case voiceExitDelayElapsed
 }
 
 public enum EngineAction: String, Codable, CaseIterable, Sendable {
@@ -38,20 +35,20 @@ public enum TypingKeyCategory: String, Codable, CaseIterable, Sendable {
 }
 
 public struct EngineConfiguration: Codable, Equatable, Sendable {
-    public var optionPendingWindow: TimeInterval
+    public var voiceActivationDelay: TimeInterval
+    public var releaseReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
-    public var voiceExitDelay: TimeInterval
     public var typingKeyWhitelist: [TypingKeyCategory]
 
     public init(
-        optionPendingWindow: TimeInterval = 0.18,
+        voiceActivationDelay: TimeInterval = 0,
+        releaseReturnDelay: TimeInterval = 0,
         cooldownDuration: TimeInterval = 5,
-        voiceExitDelay: TimeInterval = 10,
         typingKeyWhitelist: [TypingKeyCategory] = [.letters, .numbers, .space, .delete, .returnKey]
     ) {
-        self.optionPendingWindow = optionPendingWindow
+        self.voiceActivationDelay = voiceActivationDelay
+        self.releaseReturnDelay = releaseReturnDelay
         self.cooldownDuration = cooldownDuration
-        self.voiceExitDelay = voiceExitDelay
         self.typingKeyWhitelist = typingKeyWhitelist
     }
 }
@@ -71,8 +68,8 @@ public struct DiagnosticEntry: Codable, Equatable, Sendable {
 }
 
 public enum EngineTimerKind: String, Codable, Equatable, Sendable {
-    case optionPendingWindow
-    case voiceExitDelay
+    case voiceActivationDelay
+    case releaseReturnDelay
     case cooldown
 }
 

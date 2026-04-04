@@ -24,25 +24,71 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceActive,
+                    state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionWindowExpired",
-                        reason: "activated_voice_after_option_window",
-                        sourceState: .optionPending,
-                        targetState: .voiceActive
+                        trigger: "optionPressed",
+                        reason: "pressed_option_switch_to_voice",
+                        sourceState: .idlePrimary,
+                        targetState: .voiceHeld
                     )
                 )
             )
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.optionPressed)
 
         #expect(switchingService.switchCalls == ["com.example.voice"])
         #expect(model.logEntries.contains { $0.contains("current_input_source=com.apple.keylayout.ABC") })
         #expect(model.logEntries.contains { $0.contains("target_input_source=com.example.voice") })
         #expect(model.logEntries.contains { $0.contains("switch_result=success") })
+    }
+
+    @Test
+    func voiceActivationDelayDefersVoiceSwitchUntilSchedulerFires() throws {
+        let switchingService = StubInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
+        let scheduler = StubActionScheduler()
+        let model = VoiceSwitchAppModel(
+            settingsStore: InputSwitchingTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: InputSwitchingTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            inputSourceSwitchingService: switchingService,
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            engineBridge: StubActionEngineBridge(
+                result: EngineTransitionResult(
+                    state: .voiceHeld,
+                    action: .switchToVoice,
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionPressed",
+                        reason: "pressed_option_switch_to_voice",
+                        sourceState: .idlePrimary,
+                        targetState: .voiceHeld
+                    ),
+                    timer: EngineTimer(kind: .voiceActivationDelay, delaySeconds: 0.05)
+                )
+            ),
+            voiceActivationScheduler: scheduler
+        )
+
+        try model.load()
+        try model.sendTestEvent(.optionPressed)
+
+        #expect(scheduler.scheduleCallCount == 1)
+        #expect(switchingService.switchCalls.isEmpty)
+
+        scheduler.fire()
+
+        #expect(switchingService.switchCalls == ["com.example.voice"])
     }
 
     @Test
@@ -68,9 +114,9 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .idlePrimary,
                     action: .switchToPrimary,
                     diagnostic: DiagnosticEntry(
-                        trigger: "typingDetected",
-                        reason: "returned_to_idle_primary_after_typing",
-                        sourceState: .voiceActive,
+                        trigger: "optionReleased",
+                        reason: "released_option_switch_to_primary",
+                        sourceState: .voiceHeld,
                         targetState: .idlePrimary
                     )
                 )
@@ -78,11 +124,57 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.typingDetected)
+        try model.sendTestEvent(.optionReleased)
 
         #expect(switchingService.switchCalls == ["com.apple.keylayout.ABC"])
         #expect(model.logEntries.contains { $0.contains("target_input_source=com.apple.keylayout.ABC") })
         #expect(model.logEntries.contains { $0.contains("switch_result=success") })
+    }
+
+    @Test
+    func releaseReturnDelayDefersPrimarySwitchUntilSchedulerFires() throws {
+        let switchingService = StubInputSourceSwitchingService(currentInputSourceID: "com.example.voice")
+        let scheduler = StubActionScheduler()
+        let model = VoiceSwitchAppModel(
+            settingsStore: InputSwitchingTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: InputSwitchingTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: false),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: true),
+                ]
+            ),
+            inputSourceSwitchingService: switchingService,
+            permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            engineBridge: StubActionEngineBridge(
+                result: EngineTransitionResult(
+                    state: .idlePrimary,
+                    action: .switchToPrimary,
+                    diagnostic: DiagnosticEntry(
+                        trigger: "optionReleased",
+                        reason: "released_option_switch_to_primary",
+                        sourceState: .voiceHeld,
+                        targetState: .idlePrimary
+                    ),
+                    timer: EngineTimer(kind: .releaseReturnDelay, delaySeconds: 0.05)
+                )
+            ),
+            releaseReturnScheduler: scheduler
+        )
+
+        try model.load()
+        try model.sendTestEvent(.optionReleased)
+
+        #expect(scheduler.scheduleCallCount == 1)
+        #expect(switchingService.switchCalls.isEmpty)
+
+        scheduler.fire()
+
+        #expect(switchingService.switchCalls == ["com.apple.keylayout.ABC"])
     }
 
     @Test
@@ -104,20 +196,20 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceActive,
+                    state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionWindowExpired",
-                        reason: "activated_voice_after_option_window",
-                        sourceState: .optionPending,
-                        targetState: .voiceActive
+                        trigger: "optionPressed",
+                        reason: "pressed_option_switch_to_voice",
+                        sourceState: .idlePrimary,
+                        targetState: .voiceHeld
                     )
                 )
             )
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.optionPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
         #expect(model.logEntries.contains { $0.contains("switch_result=skipped") })
@@ -144,20 +236,20 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceActive,
+                    state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionWindowExpired",
-                        reason: "activated_voice_after_option_window",
-                        sourceState: .optionPending,
-                        targetState: .voiceActive
+                        trigger: "optionPressed",
+                        reason: "pressed_option_switch_to_voice",
+                        sourceState: .idlePrimary,
+                        targetState: .voiceHeld
                     )
                 )
             )
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.optionPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
         #expect(model.logEntries.contains { $0.contains("switch_result=skipped") })
@@ -185,20 +277,20 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
             permissionProvider: InputSwitchingTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
             engineBridge: StubActionEngineBridge(
                 result: EngineTransitionResult(
-                    state: .voiceActive,
+                    state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionWindowExpired",
-                        reason: "activated_voice_after_option_window",
-                        sourceState: .optionPending,
-                        targetState: .voiceActive
+                        trigger: "optionPressed",
+                        reason: "pressed_option_switch_to_voice",
+                        sourceState: .idlePrimary,
+                        targetState: .voiceHeld
                     )
                 )
             )
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.optionPressed)
 
         #expect(model.logEntries.contains { $0.contains("switch_result=failed") })
         #expect(model.logEntries.contains { $0.contains("Failed to select input source com.example.voice. OSStatus=-50") })
@@ -267,5 +359,23 @@ private struct InputSwitchingTestPermissionProvider: PermissionStatusProviding, 
 
     func snapshot() -> PermissionSnapshot {
         current
+    }
+}
+
+private final class StubActionScheduler: CooldownScheduling, @unchecked Sendable {
+    private(set) var scheduleCallCount = 0
+    private var handler: (() -> Void)?
+
+    func schedule(deadline: Date, onFire: @escaping @Sendable () -> Void) {
+        scheduleCallCount += 1
+        handler = onFire
+    }
+
+    func cancel() {
+        handler = nil
+    }
+
+    func fire() {
+        handler?()
     }
 }

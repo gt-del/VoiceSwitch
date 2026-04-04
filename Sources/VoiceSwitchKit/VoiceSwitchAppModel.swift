@@ -21,9 +21,9 @@ public final class VoiceSwitchAppModel {
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
     public var launchAtLoginEnabled: Bool
-    public var optionPendingWindow: TimeInterval
+    public var voiceActivationDelay: TimeInterval
+    public var releaseReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
-    public var voiceExitDelay: TimeInterval
     public var logEntries: [String]
 
     private let settingsStore: SettingsStoring
@@ -34,8 +34,8 @@ public final class VoiceSwitchAppModel {
     private let launchAtLoginController: LaunchAtLoginControlling
     private let engineBridge: any EngineBridging
     private let keyboardEventService: KeyboardEventListening?
-    private let optionPendingScheduler: CooldownScheduling
-    private let voiceExitScheduler: CooldownScheduling
+    private let voiceActivationScheduler: CooldownScheduling
+    private let releaseReturnScheduler: CooldownScheduling
     private let cooldownScheduler: CooldownScheduling
     private let nowProvider: @Sendable () -> Date
 
@@ -48,8 +48,8 @@ public final class VoiceSwitchAppModel {
         launchAtLoginController: LaunchAtLoginControlling = NoopLaunchAtLoginController(),
         engineBridge: any EngineBridging = RustEngineBridge(),
         keyboardEventService: KeyboardEventListening? = nil,
-        optionPendingScheduler: CooldownScheduling = CooldownScheduler(),
-        voiceExitScheduler: CooldownScheduling = CooldownScheduler(),
+        voiceActivationScheduler: CooldownScheduling = CooldownScheduler(),
+        releaseReturnScheduler: CooldownScheduling = CooldownScheduler(),
         cooldownScheduler: CooldownScheduling = CooldownScheduler(),
         nowProvider: @escaping @Sendable () -> Date = Date.init
     ) {
@@ -61,8 +61,8 @@ public final class VoiceSwitchAppModel {
         self.launchAtLoginController = launchAtLoginController
         self.engineBridge = engineBridge
         self.keyboardEventService = keyboardEventService
-        self.optionPendingScheduler = optionPendingScheduler
-        self.voiceExitScheduler = voiceExitScheduler
+        self.voiceActivationScheduler = voiceActivationScheduler
+        self.releaseReturnScheduler = releaseReturnScheduler
         self.cooldownScheduler = cooldownScheduler
         self.nowProvider = nowProvider
         self.availableInputSources = []
@@ -82,9 +82,9 @@ public final class VoiceSwitchAppModel {
         self.selectedPrimaryInputSourceID = nil
         self.selectedVoiceInputSourceID = nil
         self.launchAtLoginEnabled = false
-        self.optionPendingWindow = EngineConfiguration().optionPendingWindow
+        self.voiceActivationDelay = EngineConfiguration().voiceActivationDelay
+        self.releaseReturnDelay = EngineConfiguration().releaseReturnDelay
         self.cooldownDuration = EngineConfiguration().cooldownDuration
-        self.voiceExitDelay = EngineConfiguration().voiceExitDelay
         self.logEntries = []
     }
 
@@ -127,9 +127,9 @@ public final class VoiceSwitchAppModel {
                 "trigger=launch_at_login reason=status_mismatch source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) requested=\(settings.launchAtLoginEnabled) actual=\(launchAtLoginStatus)"
             )
         }
-        optionPendingWindow = settings.optionPendingWindow
+        voiceActivationDelay = settings.voiceActivationDelay
+        releaseReturnDelay = settings.releaseReturnDelay
         cooldownDuration = settings.cooldownDuration
-        voiceExitDelay = settings.voiceExitDelay
         keyboardEventService?.start { [weak self] summary in
             if Thread.isMainThread {
                 MainActor.assumeIsolated { [weak self] in
@@ -160,9 +160,9 @@ public final class VoiceSwitchAppModel {
             primaryInputSourceID: selectedPrimaryInputSourceID,
             voiceInputSourceID: selectedVoiceInputSourceID,
             launchAtLoginEnabled: launchAtLoginEnabled,
-            optionPendingWindow: optionPendingWindow,
-            cooldownDuration: cooldownDuration,
-            voiceExitDelay: voiceExitDelay
+            voiceActivationDelay: voiceActivationDelay,
+            releaseReturnDelay: releaseReturnDelay,
+            cooldownDuration: cooldownDuration
         )
         settingsStore.save(settings)
         do {
@@ -305,10 +305,19 @@ public final class VoiceSwitchAppModel {
             )
         }
 
-        executeEngineAction(result.action)
+        executeEngineAction(result.action, delayedBy: result.timer)
     }
 
-    private func executeEngineAction(_ action: EngineAction) {
+    private func executeEngineAction(_ action: EngineAction, delayedBy timer: EngineTimer?) {
+        if let timer, timer.kind != .cooldown, action != .enterCooldown, action != .noOp {
+            scheduleDelayedEngineAction(action, timer: timer)
+            return
+        }
+
+        performEngineAction(action)
+    }
+
+    private func performEngineAction(_ action: EngineAction) {
         switch action {
         case .switchToPrimary:
             executeInputSourceSwitch(
@@ -433,9 +442,10 @@ public final class VoiceSwitchAppModel {
 
     private var engineConfiguration: EngineConfiguration {
         EngineConfiguration(
-            optionPendingWindow: optionPendingWindow,
+            voiceActivationDelay: voiceActivationDelay,
+            releaseReturnDelay: releaseReturnDelay,
             cooldownDuration: cooldownDuration,
-            voiceExitDelay: voiceExitDelay
+            typingKeyWhitelist: EngineConfiguration().typingKeyWhitelist
         )
     }
 
@@ -448,11 +458,11 @@ public final class VoiceSwitchAppModel {
         event: InputBehavior,
         result: EngineTransitionResult
     ) {
-        if result.timer?.kind != .optionPendingWindow {
-            optionPendingScheduler.cancel()
+        if result.timer?.kind != .voiceActivationDelay {
+            voiceActivationScheduler.cancel()
         }
-        if result.timer?.kind != .voiceExitDelay {
-            voiceExitScheduler.cancel()
+        if result.timer?.kind != .releaseReturnDelay {
+            releaseReturnScheduler.cancel()
         }
         if result.timer?.kind != .cooldown {
             cooldownScheduler.cancel()
@@ -463,70 +473,70 @@ public final class VoiceSwitchAppModel {
         }
 
         switch timer.kind {
-        case .optionPendingWindow:
-            scheduleOptionPendingWindow(delay: timer.delaySeconds)
-        case .voiceExitDelay:
-            scheduleVoiceExitDelay(delay: timer.delaySeconds)
+        case .voiceActivationDelay:
+            break
+        case .releaseReturnDelay:
+            break
         case .cooldown:
             scheduleCooldown(delay: timer.delaySeconds)
         }
     }
 
-    private func scheduleOptionPendingWindow(delay: TimeInterval) {
-        let deadline = nowProvider().addingTimeInterval(delay)
-        optionPendingScheduler.schedule(deadline: deadline) { [weak self] in
+    private func scheduleDelayedEngineAction(_ action: EngineAction, timer: EngineTimer) {
+        let deadline = nowProvider().addingTimeInterval(timer.delaySeconds)
+        let scheduler = scheduler(for: timer.kind)
+
+        scheduler.schedule(deadline: deadline) { [weak self] in
             guard let self else {
                 return
             }
 
             if Thread.isMainThread {
                 MainActor.assumeIsolated { [weak self] in
-                    self?.handleOptionPendingWindowExpired()
+                    self?.performEngineAction(action)
                 }
             } else {
                 Task { @MainActor [weak self] in
-                    self?.handleOptionPendingWindowExpired()
+                    self?.performEngineAction(action)
                 }
             }
         }
 
-        logEntries.append("trigger=optionPressed reason=option_window_started source_state=idlePrimary target_state=optionPending action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedVoiceInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) timer_delay_seconds=\(delay) deadline=\(deadline.timeIntervalSince1970)")
+        logEntries.append(
+            "trigger=\(timerTrigger(for: timer.kind)) reason=\(timerReason(for: timer.kind)) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: action) ?? "none") cooldown_status=\(cooldownStatusLabel) timer_delay_seconds=\(timer.delaySeconds) deadline=\(deadline.timeIntervalSince1970)"
+        )
     }
 
-    private func scheduleVoiceExitDelay(delay: TimeInterval) {
-        let deadline = nowProvider().addingTimeInterval(delay)
-        voiceExitScheduler.schedule(deadline: deadline) { [weak self] in
-            guard let self else {
-                return
-            }
-
-            if Thread.isMainThread {
-                MainActor.assumeIsolated { [weak self] in
-                    self?.handleVoiceExitDelayElapsed()
-                }
-            } else {
-                Task { @MainActor [weak self] in
-                    self?.handleVoiceExitDelayElapsed()
-                }
-            }
-        }
-
-        logEntries.append("trigger=optionReleased reason=voice_exit_delay_started source_state=voiceActive target_state=voiceActive action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedPrimaryInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) timer_delay_seconds=\(delay) deadline=\(deadline.timeIntervalSince1970)")
-    }
-
-    private func handleOptionPendingWindowExpired() {
-        do {
-            try advanceEngine(for: .optionWindowExpired, rawDescription: nil)
-        } catch {
-            logEntries.append("trigger=optionWindowExpired reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedVoiceInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
+    private func scheduler(for timerKind: EngineTimerKind) -> CooldownScheduling {
+        switch timerKind {
+        case .voiceActivationDelay:
+            return voiceActivationScheduler
+        case .releaseReturnDelay:
+            return releaseReturnScheduler
+        case .cooldown:
+            return cooldownScheduler
         }
     }
 
-    private func handleVoiceExitDelayElapsed() {
-        do {
-            try advanceEngine(for: .voiceExitDelayElapsed, rawDescription: nil)
-        } catch {
-            logEntries.append("trigger=voiceExitDelayElapsed reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(selectedPrimaryInputSourceID ?? "none") cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
+    private func timerTrigger(for timerKind: EngineTimerKind) -> String {
+        switch timerKind {
+        case .voiceActivationDelay:
+            return "optionPressed"
+        case .releaseReturnDelay:
+            return "optionReleased"
+        case .cooldown:
+            return "manualSwitchDetected"
+        }
+    }
+
+    private func timerReason(for timerKind: EngineTimerKind) -> String {
+        switch timerKind {
+        case .voiceActivationDelay:
+            return "voice_activation_delay_started"
+        case .releaseReturnDelay:
+            return "release_return_delay_started"
+        case .cooldown:
+            return "cooldown_started"
         }
     }
 

@@ -5,8 +5,7 @@ use std::str::FromStr;
 #[serde(rename_all = "camelCase")]
 pub enum EngineState {
     IdlePrimary,
-    OptionPending,
-    VoiceActive,
+    VoiceHeld,
     Cooldown,
 }
 
@@ -14,8 +13,7 @@ impl EngineState {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::IdlePrimary => "idlePrimary",
-            Self::OptionPending => "optionPending",
-            Self::VoiceActive => "voiceActive",
+            Self::VoiceHeld => "voiceHeld",
             Self::Cooldown => "cooldown",
         }
     }
@@ -27,8 +25,7 @@ impl FromStr for EngineState {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "idlePrimary" => Ok(Self::IdlePrimary),
-            "optionPending" => Ok(Self::OptionPending),
-            "voiceActive" => Ok(Self::VoiceActive),
+            "voiceHeld" => Ok(Self::VoiceHeld),
             "cooldown" => Ok(Self::Cooldown),
             _ => Err(format!("unknown engine state: {value}")),
         }

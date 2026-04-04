@@ -104,9 +104,9 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
     private func ffiConfiguration(from configuration: EngineConfiguration) -> VSConfiguration {
         let whitelist = Set(configuration.typingKeyWhitelist)
         return VSConfiguration(
-            option_pending_window: configuration.optionPendingWindow,
+            voice_activation_delay: configuration.voiceActivationDelay,
+            release_return_delay: configuration.releaseReturnDelay,
             cooldown_duration: configuration.cooldownDuration,
-            voice_exit_delay: configuration.voiceExitDelay,
             allow_letters: whitelist.contains(.letters),
             allow_numbers: whitelist.contains(.numbers),
             allow_space: whitelist.contains(.space),
@@ -119,10 +119,8 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
         switch state {
         case .idlePrimary:
             return VSStateIdlePrimary
-        case .optionPending:
-            return VSStateOptionPending
-        case .voiceActive:
-            return VSStateVoiceActive
+        case .voiceHeld:
+            return VSStateVoiceHeld
         case .cooldown:
             return VSStateCooldown
         }
@@ -134,8 +132,6 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
             return VSEventOptionPressed
         case .optionReleased:
             return VSEventOptionReleased
-        case .optionWindowExpired:
-            return VSEventOptionWindowExpired
         case .typingDetected:
             return VSEventTypingDetected
         case .typingKeyLetters:
@@ -152,8 +148,6 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
             return VSEventManualSwitchDetected
         case .cooldownExpired:
             return VSEventCooldownExpired
-        case .voiceExitDelayElapsed:
-            return VSEventVoiceExitDelayElapsed
         }
     }
 
@@ -161,10 +155,8 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
         switch state {
         case VSStateIdlePrimary:
             return .idlePrimary
-        case VSStateOptionPending:
-            return .optionPending
-        case VSStateVoiceActive:
-            return .voiceActive
+        case VSStateVoiceHeld:
+            return .voiceHeld
         case VSStateCooldown:
             return .cooldown
         default:
@@ -194,10 +186,10 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
 
         let kind: EngineTimerKind
         switch timer.kind {
-        case VSTimerKindOptionPendingWindow:
-            kind = .optionPendingWindow
-        case VSTimerKindVoiceExitDelay:
-            kind = .voiceExitDelay
+        case VSTimerKindVoiceActivationDelay:
+            kind = .voiceActivationDelay
+        case VSTimerKindReleaseReturnDelay:
+            kind = .releaseReturnDelay
         case VSTimerKindCooldown:
             kind = .cooldown
         default:
