@@ -6,25 +6,36 @@ struct SettingsView: View {
     @Bindable var model: VoiceSwitchAppModel
 
     var body: some View {
-        Form {
-            Section("状态") {
-                Toggle("启用 VoiceSwitch", isOn: enabledBinding)
-                Text("当前状态：\(model.statusSummary)")
-                Text(statusMessage)
-                    .foregroundStyle(model.canRun && model.isEnabled ? Color.secondary : Color.orange)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                settingsIntroCard
+
+                Form {
+                    Section("状态") {
+                        Toggle("启用 VoiceSwitch", isOn: enabledBinding)
+                        Text("当前状态：\(model.statusSummary)")
+                        Text(statusMessage)
+                            .foregroundStyle(model.canRun && model.isEnabled ? Color.secondary : Color.orange)
+                    }
+
+                    InputSourcesSection(model: model)
+
+                    BehaviorSection(model: model)
+
+                    PermissionsSection(model: model)
+                }
+                .formStyle(.grouped)
+
+                HStack {
+                    Spacer()
+                    Button("保存配置") {
+                        model.saveSelections()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
-
-            InputSourcesSection(model: model)
-
-            BehaviorSection(model: model)
-
-            PermissionsSection(model: model)
-
-            Button("保存配置") {
-                model.saveSelections()
-            }
+            .padding(20)
         }
-        .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -40,6 +51,22 @@ struct SettingsView: View {
             return "VoiceSwitch 当前已禁用。启用后才会接管 Option 键并自动切换输入法。"
         }
         return model.blockingIssue ?? "当前配置可运行。"
+    }
+
+    private var settingsIntroCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("设置")
+                .font(.title2.weight(.semibold))
+            Text("在这里配置默认输入法、语音输入法，以及 Option 触发切换时的延迟和冷却行为。")
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.primary.opacity(0.06))
+        )
     }
 }
 

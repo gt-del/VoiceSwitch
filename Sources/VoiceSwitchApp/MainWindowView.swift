@@ -98,17 +98,22 @@ private struct DashboardSection: View {
     @Bindable var model: VoiceSwitchAppModel
     let openSettings: () -> Void
     let openLogs: () -> Void
+    private let summaryColumns = [
+        GridItem(.flexible(minimum: 150), spacing: 16),
+        GridItem(.flexible(minimum: 150), spacing: 16),
+    ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             Text("VoiceSwitch")
                 .font(.largeTitle.weight(.semibold))
 
             Text(dashboardSummary)
-                .font(.title3)
+                .font(.title3.weight(.medium))
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: 720, alignment: .leading)
 
-            HStack(spacing: 16) {
+            LazyVGrid(columns: summaryColumns, alignment: .leading, spacing: 16) {
                 summaryCard(title: "当前状态", value: model.statusSummary)
                 summaryCard(title: "监听状态", value: listenerSummary)
                 summaryCard(title: "默认输入法", value: model.selectedPrimaryInputSourceName)
@@ -117,23 +122,32 @@ private struct DashboardSection: View {
 
             detailPanel
 
-            HStack(spacing: 12) {
-                Button(model.isEnabled ? "停用" : "启用") {
-                    model.setEnabled(!model.isEnabled)
-                }
-                Button("重试监听") {
-                    model.retryKeyboardMonitoring()
-                }
-                Button("打开设置") {
-                    openSettings()
-                }
-                Button("打开日志") {
-                    openLogs()
-                }
-            }
+            actionBar
 
             issuePanel
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var actionBar: some View {
+        HStack(spacing: 12) {
+            Button(model.isEnabled ? "停用" : "启用") {
+                model.setEnabled(!model.isEnabled)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("重试监听") {
+                model.retryKeyboardMonitoring()
+            }
+            Button("打开设置") {
+                openSettings()
+            }
+            Button("打开日志") {
+                openLogs()
+            }
+        }
+        .buttonStyle(.bordered)
     }
 
     private var listenerSummary: String {
@@ -157,7 +171,7 @@ private struct DashboardSection: View {
     private var detailPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("运行概览")
-                .font(.headline)
+                .font(.headline.weight(.semibold))
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                 GridRow {
@@ -241,9 +255,11 @@ private struct DashboardSection: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.title3.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
+        .frame(minHeight: 98, alignment: .topLeading)
+        .padding(18)
         .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
