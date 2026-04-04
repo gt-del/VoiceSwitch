@@ -163,17 +163,17 @@ private struct DashboardSection: View {
                 GridRow {
                     Text("辅助功能权限")
                         .foregroundStyle(.secondary)
-                    Text(model.permissionSnapshot.accessibility.rawValue)
+                    Text(model.accessibilityStatusLabel)
                 }
                 GridRow {
                     Text("输入监听权限")
                         .foregroundStyle(.secondary)
-                    Text(model.permissionSnapshot.inputMonitoring.rawValue)
+                    Text(model.inputMonitoringStatusLabel)
                 }
                 GridRow {
                     Text("键盘监听")
                         .foregroundStyle(.secondary)
-                    Text(model.eventTapStatus.rawValue)
+                    Text(model.keyboardListenerStatusLabel)
                 }
                 GridRow {
                     Text("当前输入法组合")
@@ -183,7 +183,7 @@ private struct DashboardSection: View {
                 GridRow {
                     Text("最近动作")
                         .foregroundStyle(.secondary)
-                    Text(model.lastEngineAction?.rawValue ?? "none")
+                    Text(model.lastActionSummary)
                 }
                 GridRow {
                     Text("最近原始事件")

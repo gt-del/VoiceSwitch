@@ -116,6 +116,69 @@ public final class VoiceSwitchAppModel {
         displayName(forInputSourceID: selectedVoiceInputSourceID)
     }
 
+    public var accessibilityStatusLabel: String {
+        displayLabel(for: permissionSnapshot.accessibility)
+    }
+
+    public var inputMonitoringStatusLabel: String {
+        displayLabel(for: permissionSnapshot.inputMonitoring)
+    }
+
+    public var keyboardListenerStatusLabel: String {
+        switch eventTapStatus {
+        case .running:
+            return "运行中"
+        case .stopped:
+            return "未运行"
+        }
+    }
+
+    public var lastActionSummary: String {
+        guard let lastEngineAction else {
+            return "无"
+        }
+
+        switch lastEngineAction {
+        case .switchToPrimary:
+            return "切回默认输入法"
+        case .switchToVoice:
+            return "切到语音输入法"
+        case .enterCooldown:
+            return "进入冷却"
+        case .noOp:
+            return "无动作"
+        }
+    }
+
+    public var lastInputBehaviorSummary: String {
+        guard let lastInputBehavior else {
+            return "无"
+        }
+
+        switch lastInputBehavior {
+        case .optionPressed:
+            return "Option 按下"
+        case .optionReleased:
+            return "Option 松开"
+        case .typingDetected:
+            return "检测到输入"
+        case .typingKeyLetters:
+            return "字母键"
+        case .typingKeyNumbers:
+            return "数字键"
+        case .typingKeySpace:
+            return "空格键"
+        case .typingKeyDelete:
+            return "删除键"
+        case .typingKeyReturnKey:
+            return "回车键"
+        case .manualSwitchDetected:
+            return "手动切换输入法"
+        case .cooldownExpired:
+            return "冷却结束"
+        }
+    }
+
     private let settingsStore: SettingsStoring
     private let inputSourceProvider: InputSourceProviding
     private let inputSourceSwitchingService: InputSourceSwitching
@@ -753,9 +816,20 @@ public final class VoiceSwitchAppModel {
 
     private func displayName(forInputSourceID inputSourceID: String?) -> String {
         guard let inputSourceID else {
-            return "Not Set"
+            return "未设置"
         }
         return availableInputSources.first(where: { $0.id == inputSourceID })?.displayName ?? inputSourceID
+    }
+
+    private func displayLabel(for permissionState: PermissionState) -> String {
+        switch permissionState {
+        case .authorized:
+            return "已授权"
+        case .denied:
+            return "未授权"
+        case .unknown:
+            return "未知"
+        }
     }
 
     private func logAutomationStatusChange(reason: String) {

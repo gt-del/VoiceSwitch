@@ -115,9 +115,9 @@ private struct PermissionsSection: View {
 
     var body: some View {
         Section("权限与系统") {
-            Text("辅助功能权限：\(model.permissionSnapshot.accessibility.rawValue)")
-            Text("输入监听权限：\(model.permissionSnapshot.inputMonitoring.rawValue)")
-            Text("键盘监听：\(model.eventTapStatus.rawValue)")
+            Text("辅助功能权限：\(model.accessibilityStatusLabel)")
+            Text("输入监听权限：\(model.inputMonitoringStatusLabel)")
+            Text("键盘监听：\(model.keyboardListenerStatusLabel)")
 
             if let errorMessage = model.keyboardMonitoringErrorMessage {
                 Text(errorMessage)
