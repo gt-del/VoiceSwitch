@@ -10,7 +10,7 @@ struct StatusMenuView: View {
             Text("VoiceSwitch")
                 .font(.headline)
 
-            Text("状态：\(model.statusSummary)")
+            Text("当前状态：\(model.statusSummary)")
 
             if let menuBlockingLabel = model.menuBlockingLabel {
                 Text("问题：\(menuBlockingLabel)")

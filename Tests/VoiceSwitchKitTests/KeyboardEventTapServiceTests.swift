@@ -13,7 +13,7 @@ struct KeyboardEventTapServiceTests {
 
         #expect(summary == .controlPressed(keyCode: 59))
         #expect(summary?.mappedBehavior == .controlPressed)
-        #expect(summary?.rawDescription == "controlDown(keyCode:59)")
+        #expect(summary?.rawDescription == "leftControlDown(keyCode:59)")
     }
 
     @Test
@@ -26,7 +26,7 @@ struct KeyboardEventTapServiceTests {
 
         #expect(summary == .controlReleased(keyCode: 59))
         #expect(summary?.mappedBehavior == .controlReleased)
-        #expect(summary?.rawDescription == "controlUp(keyCode:59)")
+        #expect(summary?.rawDescription == "leftControlUp(keyCode:59)")
     }
 
     @Test

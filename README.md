@@ -1,10 +1,10 @@
 # VoiceSwitch
 
-VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 在 `Primary IME` 和 `Voice IME` 之间做纯 toggle 切换；主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
+VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 双击切换输入法；第一次按下切到语音输入法，第二次按下切回普通输入法。主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
 
-- 默认保持用户配置的 `Primary IME`
-- 第一次按下左 `Control` 切换到 `Voice IME`
-- 第二次按下左 `Control` 切回 `Primary IME`
+- 默认保持用户配置的普通输入法
+- 第一次按下左 `Control` 切换到语音输入法
+- 第二次按下左 `Control` 切回普通输入法
 - 用户手动切换输入法后进入 `cooldown`
 
 当前版本为 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
@@ -13,7 +13,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 在 `Pri
 
 - 主窗口 Dashboard / Settings / Logs
 - 菜单栏状态入口、打开主窗口、快速启停、重试、退出
-- 系统输入法列表读取与 Primary / Voice IME 配置保存
+- 系统输入法列表读取与普通 / 语音输入法配置保存
 - Rust core 最小状态机
 - Swift -> Rust FFI bridge
 - Keyboard Event Tap 监听
@@ -67,7 +67,6 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 在 `Pri
 当前关键事件：
 
 - `controlPressed`
-- `controlReleased`
 - `manualSwitchDetected`
 - `cooldownExpired`
 
@@ -85,21 +84,19 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 在 `Pri
 - `switchToVoiceDelay`、`switchToPrimaryDelay`、`cooldownDuration` 由 Rust core 配置驱动
 - `switchToVoiceDelay` 和 `switchToPrimaryDelay` 只用于轻微防抖，不改变主状态机语义
 - Swift 负责执行 Rust 返回的动作，并在需要时调度轻微延迟 timer
-- `controlReleased` 只保留为键盘监听传入的真实兼容事件，不驱动主切换
-- typing 事件保留兼容，但不参与主切换路径
 - cooldown 期间自动切换会被抑制，并写入结构化日志
 
 ## 设置项
 
 主窗口设置页暴露以下参数，改动后会自动保存并持久化；新事件会立即使用新配置：
 
-- `Primary IME`
-- `Voice IME`
-- `Enable VoiceSwitch`
-- `Launch at Login`
-- `切到 Voice IME 延迟`
-- `切到 Primary IME 延迟`
-- `Cooldown Duration`
+- `普通输入法`
+- `语音输入法`
+- `启用 VoiceSwitch`
+- `登录时启动`
+- `切到语音输入法延迟`
+- `切回普通输入法延迟`
+- `冷却时长`
 
 当前参数默认值与合法范围：
 
@@ -109,7 +106,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 在 `Pri
 | `switchToPrimaryDelay` | `0.00s` | `0.0...0.3` |
 | `cooldownDuration` | `5.0s` | `0.5...30.0` |
 
-设置页说明统一为：按一次左 `Control` 切换输入法。
+设置页说明统一为：第一次按左 `Control` 切到语音输入法，第二次按左 `Control` 切回普通输入法。
 
 ## 日志字段
 

@@ -71,14 +71,14 @@ public final class VoiceSwitchAppModel {
             return unavailablePrimaryIssue
         }
         guard selectedPrimaryInputSourceID != nil else {
-            return "请选择默认输入法。"
+            return "请选择普通输入法。"
         }
         if
             let primaryID = selectedPrimaryInputSourceID,
             let voiceID = selectedVoiceInputSourceID,
             primaryID == voiceID
         {
-            return "默认输入法和语音输入法不能相同。"
+            return "普通输入法和语音输入法不能相同。"
         }
         return nil
     }
@@ -94,7 +94,7 @@ public final class VoiceSwitchAppModel {
             let voiceID = selectedVoiceInputSourceID,
             primaryID == voiceID
         {
-            return "默认输入法和语音输入法不能相同。"
+            return "普通输入法和语音输入法不能相同。"
         }
         return nil
     }
@@ -141,9 +141,9 @@ public final class VoiceSwitchAppModel {
 
         switch currentEngineState {
         case .idlePrimary:
-            return "默认输入"
+            return "普通输入法"
         case .voiceMode:
-            return "语音模式"
+            return "语音输入法"
         case .cooldown:
             return "冷却中"
         }
@@ -312,9 +312,9 @@ public final class VoiceSwitchAppModel {
 
         if let primaryID = settings.primaryInputSourceID, !availableIDs.contains(primaryID) {
             selectedPrimaryInputSourceID = nil
-            unavailablePrimaryIssue = "默认输入法已失效，请重新选择可用输入法。"
-            appendLog(.user, "默认输入法已失效，请重新选择。")
-            appendLog(.diagnostic, "Primary IME configuration became unavailable: \(primaryID)")
+            unavailablePrimaryIssue = "普通输入法已失效，请重新选择可用输入法。"
+            appendLog(.user, "普通输入法已失效，请重新选择。")
+            appendLog(.diagnostic, "普通输入法配置已失效: \(primaryID)")
         } else {
             selectedPrimaryInputSourceID = settings.primaryInputSourceID
         }
@@ -323,7 +323,7 @@ public final class VoiceSwitchAppModel {
             selectedVoiceInputSourceID = nil
             unavailableVoiceIssue = "语音输入法已失效，请重新选择可用输入法。"
             appendLog(.user, "语音输入法已失效，请重新选择。")
-            appendLog(.diagnostic, "Voice IME configuration became unavailable: \(voiceID)")
+            appendLog(.diagnostic, "语音输入法配置已失效: \(voiceID)")
         } else {
             selectedVoiceInputSourceID = settings.voiceInputSourceID
         }
@@ -665,7 +665,7 @@ public final class VoiceSwitchAppModel {
             try inputSourceSwitchingService.switchToInputSource(id: targetInputSourceID)
             lastProgrammaticSwitchTargetInputSourceID = targetInputSourceID
             lastProgrammaticSwitchAt = nowProvider()
-            appendLog(.user, action == .switchToVoice ? "已切到语音输入法。" : "已切回默认输入法。")
+            appendLog(.user, action == .switchToVoice ? "已切到语音输入法。" : "已切回普通输入法。")
             appendLog(.diagnostic,
                 "trigger=input_source_switch reason=executed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=success"
             )
@@ -1028,9 +1028,9 @@ public final class VoiceSwitchAppModel {
         if let unavailablePrimaryIssue {
             return AppBlockingReason(
                 kind: .primaryInputSourceUnavailable,
-                title: "默认输入法已失效",
+                title: "普通输入法已失效",
                 message: unavailablePrimaryIssue,
-                nextStep: "请在设置里重新选择一个可用的默认输入法。"
+                nextStep: "请在设置里重新选择一个可用的普通输入法。"
             )
         }
         if let unavailableVoiceIssue {
@@ -1044,9 +1044,9 @@ public final class VoiceSwitchAppModel {
         if selectedPrimaryInputSourceID == nil {
             return AppBlockingReason(
                 kind: .primaryInputSourceMissing,
-                title: "默认输入法未配置",
-                message: "未配置默认输入法。",
-                nextStep: "请先在设置里选择一个默认输入法。"
+                title: "普通输入法未配置",
+                message: "未配置普通输入法。",
+                nextStep: "请先在设置里选择一个普通输入法。"
             )
         }
         if selectedVoiceInputSourceID == nil {
@@ -1065,8 +1065,8 @@ public final class VoiceSwitchAppModel {
             return AppBlockingReason(
                 kind: .duplicateInputSources,
                 title: "输入法配置冲突",
-                message: "默认输入法和语音输入法不能相同。",
-                nextStep: "请把默认输入法和语音输入法改成两个不同的选项。"
+                message: "普通输入法和语音输入法不能相同。",
+                nextStep: "请把普通输入法和语音输入法改成两个不同的选项。"
             )
         }
 

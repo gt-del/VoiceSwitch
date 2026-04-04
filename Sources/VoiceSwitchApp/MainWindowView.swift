@@ -161,7 +161,7 @@ private struct DashboardSection: View {
     }
 
     private var inputSourceSummary: String {
-        "默认：\(model.selectedPrimaryInputSourceName)\n语音：\(model.selectedVoiceInputSourceName)"
+        "普通：\(model.selectedPrimaryInputSourceName)\n语音：\(model.selectedVoiceInputSourceName)"
     }
 
     private var lastActionSummary: String {
@@ -171,7 +171,7 @@ private struct DashboardSection: View {
 
         switch lastEngineAction {
         case .switchToPrimary:
-            return "切回默认输入法"
+            return "切回普通输入法"
         case .switchToVoice:
             return "切到语音输入法"
         case .enterCooldown:
@@ -188,7 +188,7 @@ private struct DashboardSection: View {
         if model.blockingReason != nil {
             return "当前不可用。请先处理权限、配置或监听问题，再继续使用自动切换。"
         }
-        return "默认保持 Primary IME，第一次按左 Control 切到 Voice IME，第二次按左 Control 切回。"
+        return "默认保持普通输入法，第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。"
     }
 
     private var nextStepText: String? {

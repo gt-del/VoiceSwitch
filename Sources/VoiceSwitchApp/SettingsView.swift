@@ -51,7 +51,7 @@ struct SettingsView: View {
         AppCard {
             Text("设置")
                 .font(.title2.weight(.semibold))
-            Text("在这里配置默认输入法、语音输入法，以及左 Control 切换行为。")
+            Text("在这里配置普通输入法、语音输入法，以及左 Control 切换规则。")
                 .foregroundStyle(.secondary)
         }
     }
@@ -62,7 +62,7 @@ private struct InputSourcesSection: View {
 
     var body: some View {
         Section("输入法") {
-            Picker("Primary IME", selection: primaryBinding) {
+            Picker("普通输入法", selection: primaryBinding) {
                 Text("未设置").tag(String?.none)
                 ForEach(model.availableInputSources) { source in
                     Text(source.displayName).tag(String?.some(source.id))
@@ -73,7 +73,7 @@ private struct InputSourcesSection: View {
                     .foregroundStyle(.orange)
             }
 
-            Picker("Voice IME", selection: voiceBinding) {
+            Picker("语音输入法", selection: voiceBinding) {
                 Text("未设置").tag(String?.none)
                 ForEach(model.availableInputSources) { source in
                     Text(source.displayName).tag(String?.some(source.id))
@@ -107,18 +107,18 @@ private struct BehaviorSection: View {
     var body: some View {
         Section("行为") {
             Stepper(value: switchToVoiceDelayBinding, in: 0.0...0.3, step: 0.01) {
-                Text("切到 Voice IME 延迟：\(model.switchToVoiceDelay, format: .number.precision(.fractionLength(2)))s")
+                Text("切到语音输入法延迟：\(model.switchToVoiceDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
             Stepper(value: switchToPrimaryDelayBinding, in: 0.0...0.3, step: 0.01) {
-                Text("切到 Primary IME 延迟：\(model.switchToPrimaryDelay, format: .number.precision(.fractionLength(2)))s")
+                Text("切回普通输入法延迟：\(model.switchToPrimaryDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
             Stepper(value: cooldownDurationBinding, in: 0.5...30.0, step: 0.5) {
                 Text("冷却时长：\(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
             }
 
-            Text("按一次左 Control 切换输入法。")
+            Text("第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

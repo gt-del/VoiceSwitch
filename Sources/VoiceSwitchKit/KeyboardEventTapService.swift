@@ -36,9 +36,9 @@ public enum KeyboardEventSummary: Equatable, Sendable {
     public var rawDescription: String {
         switch self {
         case let .controlPressed(keyCode):
-            return "controlDown(keyCode:\(keyCode))"
+            return "leftControlDown(keyCode:\(keyCode))"
         case let .controlReleased(keyCode):
-            return "controlUp(keyCode:\(keyCode))"
+            return "leftControlUp(keyCode:\(keyCode))"
         case let .typingKey(keyCode, category):
             return "typingKey(keyCode:\(keyCode),category:\(category.rawValue))"
         case let .tapDisabled(reason):

@@ -10,13 +10,13 @@ public enum VoiceSwitchSettingsValidationError: LocalizedError, Equatable, Senda
     public var errorDescription: String? {
         switch self {
         case .primaryInputSourceMissing:
-            return "默认输入法不能为空。"
+            return "普通输入法不能为空。"
         case .voiceInputSourceMissing:
             return "语音输入法不能为空。"
         case .duplicateInputSources:
-            return "默认输入法和语音输入法不能相同。"
+            return "普通输入法和语音输入法不能相同。"
         case let .primaryInputSourceUnavailable(inputSourceID):
-            return "默认输入法不在当前可选列表中：\(inputSourceID)"
+            return "普通输入法不在当前可选列表中：\(inputSourceID)"
         case let .voiceInputSourceUnavailable(inputSourceID):
             return "语音输入法不在当前可选列表中：\(inputSourceID)"
         }

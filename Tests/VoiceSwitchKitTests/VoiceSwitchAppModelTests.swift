@@ -140,7 +140,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(model.selectedPrimaryInputSourceID == nil)
         #expect(model.selectedVoiceInputSourceID == "voice.id")
-        #expect(model.configurationIssues.contains { $0.contains("默认输入法已失效") })
+        #expect(model.configurationIssues.contains { $0.contains("普通输入法已失效") })
         #expect(!model.canRun)
         #expect(model.statusSummary == "不可用")
     }
@@ -186,7 +186,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(!model.canRun)
         #expect(model.blockingReason?.kind == .primaryInputSourceMissing)
-        #expect(model.blockingReason?.message == "未配置默认输入法。")
+        #expect(model.blockingReason?.message == "未配置普通输入法。")
         #expect(model.statusSummary == "不可用")
     }
 
@@ -210,9 +210,9 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(!model.canRun)
-        #expect(model.configurationIssues.contains("默认输入法和语音输入法不能相同。"))
+        #expect(model.configurationIssues.contains("普通输入法和语音输入法不能相同。"))
         #expect(model.blockingReason?.kind == .duplicateInputSources)
-        #expect(model.blockingReason?.message == "默认输入法和语音输入法不能相同。")
+        #expect(model.blockingReason?.message == "普通输入法和语音输入法不能相同。")
     }
 
     @Test
@@ -410,7 +410,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(model.canRun)
         #expect(model.blockingReason == nil)
-        #expect(model.statusSummary == "默认输入")
+        #expect(model.statusSummary == "普通输入法")
     }
 
     @Test
@@ -474,7 +474,7 @@ struct VoiceSwitchAppModelTests {
         model.updateVoiceInputSourceID("primary.id")
         model.saveSelections()
 
-        #expect(model.settingsSaveStatusMessage == "默认输入法和语音输入法不能相同。")
+        #expect(model.settingsSaveStatusMessage == "普通输入法和语音输入法不能相同。")
         #expect(store.load().primaryInputSourceID == nil)
         #expect(store.load().voiceInputSourceID == nil)
     }
