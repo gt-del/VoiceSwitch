@@ -14,13 +14,19 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
     }
 
     private let userDefaults: UserDefaults
+    private let legacyDomainNames: [String]
 
-    public init(userDefaults: UserDefaults = .standard) {
+    public init(
+        userDefaults: UserDefaults = .standard,
+        legacyDomainNames: [String] = ["VoiceSwitchApp"]
+    ) {
         self.userDefaults = userDefaults
+        self.legacyDomainNames = legacyDomainNames
     }
 
     public func load() -> VoiceSwitchSettings {
         let defaults = VoiceSwitchSettings()
+        migrateLegacyPreferencesIfNeeded(defaults: defaults)
 
         return VoiceSwitchSettings(
             primaryInputSourceID: userDefaults.string(forKey: Keys.primaryInputSourceID),
@@ -53,6 +59,7 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         userDefaults.set(settings.voiceActivationDelay, forKey: Keys.voiceActivationDelay)
         userDefaults.set(settings.releaseReturnDelay, forKey: Keys.releaseReturnDelay)
         userDefaults.set(settings.cooldownDuration, forKey: Keys.cooldownDuration)
+        purgeLegacyKeys()
     }
 
     private func loadDelay(primaryKey: String, legacyKey: String, defaultValue: TimeInterval) -> TimeInterval {
@@ -70,5 +77,145 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
             return defaultValue
         }
         return value
+    }
+
+    private func migrateLegacyPreferencesIfNeeded(defaults: VoiceSwitchSettings) {
+        let migratedSettings = VoiceSwitchSettings(
+            primaryInputSourceID: firstNonEmptyString(
+                currentKey: Keys.primaryInputSourceID,
+                legacyKey: Keys.primaryInputSourceID
+            ),
+            voiceInputSourceID: firstNonEmptyString(
+                currentKey: Keys.voiceInputSourceID,
+                legacyKey: Keys.voiceInputSourceID
+            ),
+            isEnabled: firstBool(
+                currentKey: Keys.isEnabled,
+                legacyKey: Keys.isEnabled,
+                defaultValue: defaults.isEnabled
+            ),
+            launchAtLoginEnabled: firstBool(
+                currentKey: Keys.launchAtLoginEnabled,
+                legacyKey: Keys.launchAtLoginEnabled,
+                defaultValue: defaults.launchAtLoginEnabled
+            ),
+            voiceActivationDelay: firstDelay(
+                currentKey: Keys.voiceActivationDelay,
+                currentLegacyKey: Keys.legacyOptionPendingWindow,
+                legacyKey: Keys.voiceActivationDelay,
+                legacyFallbackKey: Keys.legacyOptionPendingWindow,
+                defaultValue: defaults.voiceActivationDelay
+            ),
+            releaseReturnDelay: firstDelay(
+                currentKey: Keys.releaseReturnDelay,
+                currentLegacyKey: Keys.legacyVoiceExitDelay,
+                legacyKey: Keys.releaseReturnDelay,
+                legacyFallbackKey: Keys.legacyVoiceExitDelay,
+                defaultValue: defaults.releaseReturnDelay
+            ),
+            cooldownDuration: firstDouble(
+                currentKey: Keys.cooldownDuration,
+                legacyKey: Keys.cooldownDuration,
+                defaultValue: defaults.cooldownDuration
+            )
+        )
+
+        save(migratedSettings)
+        removeLegacyDomains()
+    }
+
+    private func firstNonEmptyString(currentKey: String, legacyKey: String) -> String? {
+        if let current = userDefaults.string(forKey: currentKey) {
+            return current
+        }
+
+        for domain in legacyDomainNames {
+            if let value = userDefaults.persistentDomain(forName: domain)?[legacyKey] as? String {
+                return value
+            }
+        }
+
+        return nil
+    }
+
+    private func firstBool(currentKey: String, legacyKey: String, defaultValue: Bool) -> Bool {
+        if userDefaults.object(forKey: currentKey) != nil {
+            return userDefaults.bool(forKey: currentKey)
+        }
+
+        for domain in legacyDomainNames {
+            if let value = userDefaults.persistentDomain(forName: domain)?[legacyKey] as? Bool {
+                return value
+            }
+        }
+
+        return defaultValue
+    }
+
+    private func firstDouble(currentKey: String, legacyKey: String, defaultValue: Double) -> Double {
+        if userDefaults.object(forKey: currentKey) != nil {
+            return userDefaults.double(forKey: currentKey)
+        }
+
+        for domain in legacyDomainNames {
+            if let value = userDefaults.persistentDomain(forName: domain)?[legacyKey] as? Double {
+                return value
+            }
+            if let value = userDefaults.persistentDomain(forName: domain)?[legacyKey] as? NSNumber {
+                return value.doubleValue
+            }
+        }
+
+        return defaultValue
+    }
+
+    private func firstDelay(
+        currentKey: String,
+        currentLegacyKey: String,
+        legacyKey: String,
+        legacyFallbackKey: String,
+        defaultValue: TimeInterval
+    ) -> TimeInterval {
+        if userDefaults.object(forKey: currentKey) != nil {
+            return sanitizedDelay(userDefaults.double(forKey: currentKey), defaultValue: defaultValue)
+        }
+        if userDefaults.object(forKey: currentLegacyKey) != nil {
+            return sanitizedDelay(userDefaults.double(forKey: currentLegacyKey), defaultValue: defaultValue)
+        }
+
+        for domain in legacyDomainNames {
+            if let value = domainDouble(forName: domain, key: legacyKey) {
+                return sanitizedDelay(value, defaultValue: defaultValue)
+            }
+            if let value = domainDouble(forName: domain, key: legacyFallbackKey) {
+                return sanitizedDelay(value, defaultValue: defaultValue)
+            }
+        }
+
+        return defaultValue
+    }
+
+    private func domainDouble(forName domain: String, key: String) -> Double? {
+        guard let domainValues = userDefaults.persistentDomain(forName: domain) else {
+            return nil
+        }
+        if let value = domainValues[key] as? Double {
+            return value
+        }
+        if let value = domainValues[key] as? NSNumber {
+            return value.doubleValue
+        }
+        return nil
+    }
+
+    private func purgeLegacyKeys() {
+        userDefaults.removeObject(forKey: Keys.legacyOptionPendingWindow)
+        userDefaults.removeObject(forKey: Keys.legacyVoiceExitDelay)
+    }
+
+    private func removeLegacyDomains() {
+        for domain in legacyDomainNames {
+            userDefaults.removePersistentDomain(forName: domain)
+        }
     }
 }
