@@ -12,8 +12,8 @@ struct StatusMenuView: View {
 
             Text("状态：\(model.statusSummary)")
 
-            if let issue = model.blockingIssue, model.isEnabled {
-                Text(issue)
+            if let menuBlockingLabel = model.menuBlockingLabel {
+                Text("问题：\(menuBlockingLabel)")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
@@ -38,6 +38,6 @@ struct StatusMenuView: View {
             }
         }
         .padding(12)
-        .frame(width: 260)
+        .frame(width: 220)
     }
 }

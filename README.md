@@ -28,8 +28,9 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - 关闭主窗口后应用不会退出，会继续保留 Dock 与菜单栏入口常驻运行
 - 主窗口关闭后，可通过点击 Dock 图标或菜单栏 `Open VoiceSwitch` 重新打开
 - `Dashboard` 默认只展示当前状态、输入法组合、权限/监听状态、最近动作
+- `Dashboard` 只在当前不可用时展示阻塞原因与下一步建议；正常运行时保持简洁
 - 诊断字段收进 `诊断信息` 折叠区，避免主视图被路径和底层布尔值占满
-- `Settings` 负责 Input Sources、Behavior、Permissions & System 配置，设置改动会自动保存并自动应用
+- `Settings` 负责 Input Sources、Behavior、Permissions & System 配置，不再重复展示 Dashboard 已经清楚表达的状态说明
 - `Logs` 默认显示用户日志，可切换到诊断日志继续排障
 - `Permissions & System` 会显示实时权限检测值与运行对象信息：
   - `AXIsProcessTrusted`
@@ -248,6 +249,15 @@ macOS 记住的是“被授权的运行对象”，不是单纯记住“VoiceSwi
 
 因为系统判断的是“这个具体运行目标有没有被授权”，不是“你以前是否给过某个同名应用权限”。当路径、Bundle 或签名变化后，系统可能把它当成新的对象，需要重新绑定权限。
 
+### 为什么要分别打开“辅助功能”和“输入监听”？
+
+因为它们是两个独立的系统入口，授权状态也彼此独立：
+
+- “辅助功能”决定 VoiceSwitch 是否可以接管和监听需要的辅助能力
+- “输入监听”决定 VoiceSwitch 是否可以读取全局键盘事件
+
+设置页里会分别提供“打开辅助功能”和“打开输入监听”两个按钮；如果只授权了其中一个，应用仍然会显示不可用。
+
 ### 如何确认当前运行对象就是已授权对象？
 
 打开主窗口，在 `Dashboard` 或 `Settings > Permissions & System` 查看：
@@ -267,6 +277,7 @@ macOS 记住的是“被授权的运行对象”，不是单纯记住“VoiceSwi
 3. 删除旧的 VoiceSwitch 条目
 4. 用你准备长期使用的方式重新启动 VoiceSwitch
    - 推荐固定 `.app`
+   - 不建议长期使用 `swift run VoiceSwitchApp`
 5. 在系统设置里重新勾选当前这个运行目标
 6. 回到 VoiceSwitch，等待自动恢复；只有自动恢复失败时，再点 `重试监听`
 

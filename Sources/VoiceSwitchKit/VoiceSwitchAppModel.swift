@@ -29,9 +29,6 @@ public final class VoiceSwitchAppModel {
     public var logEntries: [String] {
         allLogEntries.map(\.message)
     }
-    public var blockingIssue: String? {
-        blockingReason?.message
-    }
     public var blockingReason: AppBlockingReason? {
         if let permissionBlockingReason {
             return permissionBlockingReason
@@ -112,6 +109,26 @@ public final class VoiceSwitchAppModel {
     }
     public var shouldHighlightRetryMonitoring: Bool {
         isEnabled && blockingReason != nil
+    }
+    public var menuBlockingLabel: String? {
+        guard isEnabled, let blockingReason else {
+            return nil
+        }
+
+        switch blockingReason.kind {
+        case .accessibilityDenied, .runtimeIdentityMismatch:
+            return "权限缺失"
+        case .inputMonitoringDenied:
+            return "输入监听缺失"
+        case .keyboardMonitoringStopped:
+            return "监听未运行"
+        case .primaryInputSourceMissing, .voiceInputSourceMissing:
+            return "输入法未配置"
+        case .primaryInputSourceUnavailable, .voiceInputSourceUnavailable:
+            return "输入法失效"
+        case .duplicateInputSources:
+            return "输入法冲突"
+        }
     }
 
     public var statusSummary: String {

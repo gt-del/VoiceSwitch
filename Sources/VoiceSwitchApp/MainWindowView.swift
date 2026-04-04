@@ -115,16 +115,18 @@ private struct DashboardSection: View {
 
             LazyVGrid(columns: summaryColumns, alignment: .leading, spacing: 16) {
                 summaryCard(title: "当前状态", value: model.statusSummary)
-                summaryCard(title: "当前输入法组合", value: model.inputSourceSummaryText)
-                summaryCard(title: "权限与监听", value: permissionAndListenerSummary)
-                summaryCard(title: "最近一次动作", value: model.lastActionDisplayText)
+                summaryCard(title: "当前输入法组合", value: inputSourceSummary)
+                summaryCard(title: "权限与监听摘要", value: permissionAndListenerSummary)
+                summaryCard(title: "最近一次动作", value: lastActionSummary)
             }
 
-            guidancePanel
+            issuePanel
+
+            if let nextStepText {
+                guidancePanel(nextStepText)
+            }
 
             actionBar
-
-            issuePanel
 
             diagnosticPanel
         }
@@ -155,7 +157,28 @@ private struct DashboardSection: View {
         if !model.isEnabled {
             return "已停用"
         }
-        return model.permissionSummaryText
+        return "辅助功能 \(model.accessibilityStatusLabel) · 输入监听 \(model.inputMonitoringStatusLabel) · 监听 \(model.keyboardListenerStatusLabel)"
+    }
+
+    private var inputSourceSummary: String {
+        "默认：\(model.selectedPrimaryInputSourceName)\n语音：\(model.selectedVoiceInputSourceName)"
+    }
+
+    private var lastActionSummary: String {
+        guard let lastEngineAction = model.lastEngineAction else {
+            return "无"
+        }
+
+        switch lastEngineAction {
+        case .switchToPrimary:
+            return "切回默认输入法"
+        case .switchToVoice:
+            return "切到语音输入法"
+        case .enterCooldown:
+            return "进入冷却"
+        case .noOp:
+            return "无动作"
+        }
     }
 
     private var dashboardSummary: String {
@@ -168,25 +191,25 @@ private struct DashboardSection: View {
         return "默认保持 Primary IME，按住 Option 切到 Voice IME，松开后恢复。"
     }
 
-    private var guidancePanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var nextStepText: String? {
+        if !model.isEnabled {
+            return "启用 VoiceSwitch 后才会接管 Option 键。"
+        }
+        return model.blockingReason?.nextStep
+    }
+
+    private func guidancePanel(_ text: String) -> some View {
+        AppCard {
             Text("下一步建议")
                 .font(.headline.weight(.semibold))
-            Text(model.nextStepDisplayText)
+            Text(text)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.primary.opacity(0.06))
-        )
     }
 
     private var diagnosticPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        AppCard {
             DisclosureGroup("诊断信息") {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                     GridRow {
@@ -227,35 +250,17 @@ private struct DashboardSection: View {
             }
             .font(.callout)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.primary.opacity(0.06))
-        )
     }
 
     @ViewBuilder
     private var issuePanel: some View {
         if let blockingReason = model.blockingReason {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(blockingReason.title, systemImage: "exclamationmark.triangle.fill")
-                    .font(.headline)
-                Text(blockingReason.message)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.orange.opacity(0.25))
-            )
+            BlockingReasonCard(reason: blockingReason)
         }
     }
 
     private func summaryCard(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        AppCard {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -263,18 +268,51 @@ private struct DashboardSection: View {
                 .font(.title3.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: 98, alignment: .topLeading)
+    }
+}
+
+struct AppCard<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(Color.primary.opacity(0.06))
         )
     }
+}
 
-    private var cardFill: Color {
-        Color(nsColor: .controlBackgroundColor)
+struct BlockingReasonCard: View {
+    let reason: AppBlockingReason
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("阻塞原因")
+                .font(.headline.weight(.semibold))
+            VStack(alignment: .leading, spacing: 8) {
+                Label(reason.title, systemImage: "exclamationmark.triangle.fill")
+                    .font(.headline)
+                Text(reason.message)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.orange.opacity(0.25))
+        )
     }
 }
 

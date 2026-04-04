@@ -6,15 +6,17 @@ struct RetryMonitoringButton: View {
 
     var body: some View {
         if model.shouldHighlightRetryMonitoring {
-            Button("重试监听") {
-                model.retryKeyboardMonitoring()
-            }
-            .buttonStyle(.borderedProminent)
+            retryButton
+                .buttonStyle(.borderedProminent)
         } else {
-            Button("重试监听") {
-                model.retryKeyboardMonitoring()
-            }
-            .buttonStyle(.bordered)
+            retryButton
+                .buttonStyle(.bordered)
+        }
+    }
+
+    private var retryButton: some View {
+        Button("重试监听") {
+            model.retryKeyboardMonitoring()
         }
     }
 }

@@ -12,17 +12,13 @@ struct LogPanelView: View {
             Text("日志")
                 .font(.title2)
 
-            Text("用户日志用于日常查看；诊断日志用于排障。")
-                .foregroundStyle(.secondary)
-
-            Text("当前状态：\(model.statusSummary)")
-                .font(.callout)
+            Text("默认显示日常记录；需要排障时再切换诊断。")
                 .foregroundStyle(.secondary)
 
             Picker("日志范围", selection: $selectedFilter) {
+                Text("用户").tag(AppLogFilter.user)
+                Text("诊断").tag(AppLogFilter.diagnostic)
                 Text("全部").tag(AppLogFilter.all)
-                Text("用户日志").tag(AppLogFilter.user)
-                Text("诊断日志").tag(AppLogFilter.diagnostic)
             }
             .pickerStyle(.segmented)
 
@@ -34,7 +30,7 @@ struct LogPanelView: View {
 
                 if let exportStatusMessage {
                     Text(exportStatusMessage)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -46,12 +42,20 @@ struct LogPanelView: View {
             } else {
                 List(model.filteredLogEntries(selectedFilter)) { entry in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.level == .user ? "用户日志" : "诊断日志")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Text(entry.timestamp.formatted(.dateTime.month().day().hour().minute().second()))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                            Text(logLevelText(entry.level))
+                                .font(.caption.weight(.medium))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(levelBackgroundColor(entry.level), in: Capsule())
+                        }
                         Text(entry.message)
                             .textSelection(.enabled)
                     }
+                    .padding(.vertical, 2)
                 }
             }
         }
@@ -73,6 +77,24 @@ struct LogPanelView: View {
             exportStatusMessage = "日志已导出到 \(url.lastPathComponent)。"
         } catch {
             exportStatusMessage = "日志导出失败：\(error.localizedDescription)"
+        }
+    }
+
+    private func logLevelText(_ level: AppLogLevel) -> String {
+        switch level {
+        case .user:
+            return "用户"
+        case .diagnostic:
+            return "诊断"
+        }
+    }
+
+    private func levelBackgroundColor(_ level: AppLogLevel) -> Color {
+        switch level {
+        case .user:
+            return Color.green.opacity(0.16)
+        case .diagnostic:
+            return Color.secondary.opacity(0.14)
         }
     }
 }

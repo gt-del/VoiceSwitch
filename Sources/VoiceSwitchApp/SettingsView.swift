@@ -13,9 +13,14 @@ struct SettingsView: View {
                 Form {
                     Section("状态") {
                         Toggle("启用 VoiceSwitch", isOn: enabledBinding)
-                        Text("当前状态：\(model.statusSummary)")
-                        Text(statusMessage)
-                            .foregroundStyle(model.canRun && model.isEnabled ? Color.secondary : Color.orange)
+                        LabeledContent("当前状态") {
+                            Text(model.statusSummary)
+                        }
+
+                        if let blockingReason = model.blockingReason {
+                            Text("阻塞：\(blockingReason.message)")
+                                .foregroundStyle(.orange)
+                        }
                     }
 
                     InputSourcesSection(model: model)
@@ -26,7 +31,7 @@ struct SettingsView: View {
                 }
                 .formStyle(.grouped)
 
-                Text(model.settingsAutosaveText)
+                Text(model.settingsSaveStatusMessage ?? "设置会自动保存并自动应用。")
                     .font(.callout)
                     .foregroundStyle(model.launchAtLoginErrorMessage == nil ? Color.secondary : Color.orange)
             }
@@ -42,27 +47,13 @@ struct SettingsView: View {
         )
     }
 
-    private var statusMessage: String {
-        if !model.isEnabled {
-            return "VoiceSwitch 当前已停用。启用后才会接管 Option 键并自动切换输入法。"
-        }
-        return model.blockingReason?.message ?? "当前配置可运行。"
-    }
-
     private var settingsIntroCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        AppCard {
             Text("设置")
                 .font(.title2.weight(.semibold))
             Text("在这里配置默认输入法、语音输入法，以及按住 Option 时的切换行为。")
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.primary.opacity(0.06))
-        )
     }
 }
 
@@ -160,15 +151,22 @@ private struct PermissionsSection: View {
 
     var body: some View {
         Section("权限与系统") {
-            Text("辅助功能权限：\(model.accessibilityStatusLabel)")
-            Text("输入监听权限：\(model.inputMonitoringStatusLabel)")
-            Text("键盘监听：\(model.keyboardListenerStatusLabel)")
-            Text("运行对象匹配：\(model.runtimeIdentityStatusLabel)")
-            Text(model.runtimeIdentityGuidanceText)
-                .foregroundStyle(.secondary)
+            LabeledContent("辅助功能权限") {
+                Text(model.accessibilityStatusLabel)
+            }
+            LabeledContent("输入监听权限") {
+                Text(model.inputMonitoringStatusLabel)
+            }
+            LabeledContent("键盘监听状态") {
+                Text(model.keyboardListenerStatusLabel)
+            }
+            LabeledContent("运行对象匹配") {
+                Text(model.runtimeIdentityStatusLabel)
+            }
 
-            if let errorMessage = model.keyboardMonitoringErrorMessage {
-                Text(errorMessage)
+            if let permissionHint {
+                Text(permissionHint)
+                    .font(.caption)
                     .foregroundStyle(.orange)
             }
 
@@ -179,15 +177,16 @@ private struct PermissionsSection: View {
                     .foregroundStyle(.orange)
             }
 
-            Text("遇到权限问题时，优先使用固定 `.app` 形态启动，并确认系统设置里勾选的是当前运行目标。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
             HStack {
                 RetryMonitoringButton(model: model)
 
-                Button("打开系统设置") {
+                Button("打开辅助功能") {
                     openAccessibilitySettings()
+                }
+                .buttonStyle(.bordered)
+
+                Button("打开输入监听") {
+                    openInputMonitoringSettings()
                 }
                 .buttonStyle(.bordered)
             }
@@ -200,6 +199,29 @@ private struct PermissionsSection: View {
         }
 
         NSWorkspace.shared.open(url)
+    }
+
+    private func openInputMonitoringSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+
+    private var permissionHint: String? {
+        switch model.blockingReason?.kind {
+        case .accessibilityDenied:
+            return "当前缺少辅助功能权限。"
+        case .inputMonitoringDenied:
+            return "当前缺少输入监听权限。"
+        case .runtimeIdentityMismatch:
+            return "请确认系统设置勾选的是当前运行目标。"
+        case .keyboardMonitoringStopped:
+            return "监听未运行，可先点“重试监听”。"
+        default:
+            return nil
+        }
     }
 
     private var launchAtLoginBinding: Binding<Bool> {

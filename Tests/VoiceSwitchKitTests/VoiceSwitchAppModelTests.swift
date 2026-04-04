@@ -186,7 +186,7 @@ struct VoiceSwitchAppModelTests {
 
         #expect(!model.canRun)
         #expect(model.blockingReason?.kind == .primaryInputSourceMissing)
-        #expect(model.blockingIssue == "未配置默认输入法。")
+        #expect(model.blockingReason?.message == "未配置默认输入法。")
         #expect(model.statusSummary == "不可用")
     }
 
@@ -212,7 +212,7 @@ struct VoiceSwitchAppModelTests {
         #expect(!model.canRun)
         #expect(model.configurationIssues.contains("默认输入法和语音输入法不能相同。"))
         #expect(model.blockingReason?.kind == .duplicateInputSources)
-        #expect(model.blockingIssue == "默认输入法和语音输入法不能相同。")
+        #expect(model.blockingReason?.message == "默认输入法和语音输入法不能相同。")
     }
 
     @Test
@@ -228,7 +228,8 @@ struct VoiceSwitchAppModelTests {
         #expect(!model.canRun)
         #expect(model.statusSummary == "不可用")
         #expect(model.blockingReason?.kind == .accessibilityDenied)
-        #expect(model.blockingIssue?.contains("辅助功能权限") == true)
+        #expect(model.blockingReason?.message.contains("辅助功能权限") == true)
+        #expect(model.menuBlockingLabel == "权限缺失")
     }
 
     @Test
@@ -256,7 +257,35 @@ struct VoiceSwitchAppModelTests {
         #expect(!model.canRun)
         #expect(model.statusSummary == "不可用")
         #expect(model.blockingReason?.kind == .inputMonitoringDenied)
-        #expect(model.blockingIssue?.contains("输入监听权限") == true)
+        #expect(model.blockingReason?.message.contains("输入监听权限") == true)
+        #expect(model.menuBlockingLabel == "输入监听缺失")
+    }
+
+    @Test
+    func runningConfigurationDoesNotExposeMenuBlockingLabel() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "primary.id",
+                    voiceInputSourceID: "voice.id"
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(
+                current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)
+            )
+        )
+
+        try model.load()
+
+        #expect(model.canRun)
+        #expect(model.blockingReason == nil)
+        #expect(model.menuBlockingLabel == nil)
     }
 
     @Test
@@ -291,7 +320,7 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(model.blockingReason?.kind == .runtimeIdentityMismatch)
-        #expect(model.blockingIssue?.contains("未命中已授权条目") == true)
+        #expect(model.blockingReason?.message.contains("未命中已授权条目") == true)
     }
 
     @Test
@@ -326,7 +355,7 @@ struct VoiceSwitchAppModelTests {
         try model.load()
 
         #expect(model.blockingReason?.kind == .runtimeIdentityMismatch)
-        #expect(model.blockingIssue?.contains("未命中已授权条目") == true)
+        #expect(model.blockingReason?.message.contains("未命中已授权条目") == true)
     }
 
     @Test
@@ -380,7 +409,7 @@ struct VoiceSwitchAppModelTests {
         model.isEnabled = true
 
         #expect(model.canRun)
-        #expect(model.blockingIssue == nil)
+        #expect(model.blockingReason == nil)
         #expect(model.statusSummary == "默认输入")
     }
 
