@@ -3,6 +3,7 @@ import VoiceSwitchKit
 
 @main
 struct VoiceSwitchApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: VoiceSwitchAppModel
 
     init() {
