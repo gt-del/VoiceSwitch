@@ -7,8 +7,8 @@ public enum EngineState: String, Codable, CaseIterable, Sendable {
 }
 
 public enum InputBehavior: String, Codable, CaseIterable, Sendable {
-    case optionPressed
-    case optionReleased
+    case controlPressed
+    case controlReleased
     case typingDetected
     case typingKeyLetters
     case typingKeyNumbers

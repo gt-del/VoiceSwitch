@@ -26,8 +26,8 @@ struct VoiceSwitchAppModelEngineTests {
                     state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionPressed",
-                        reason: "pressed_option_switch_to_voice",
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
                         targetState: .voiceHeld
                     )
@@ -36,12 +36,12 @@ struct VoiceSwitchAppModelEngineTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(model.currentEngineState == .voiceHeld)
-        #expect(model.lastInputBehavior == .optionPressed)
+        #expect(model.lastInputBehavior == .controlPressed)
         #expect(model.lastEngineAction == .switchToVoice)
-        #expect(model.logEntries.contains { $0.contains("optionPressed") })
+        #expect(model.logEntries.contains { $0.contains("controlPressed") })
         #expect(model.logEntries.contains { $0.contains("voiceHeld") })
     }
 }

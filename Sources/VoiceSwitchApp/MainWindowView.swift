@@ -65,7 +65,7 @@ struct MainWindowView: View {
 
     private var bannerMessage: String {
         if !model.isEnabled {
-            return "VoiceSwitch 当前已停用，不会监听 Option 键，也不会自动切换输入法。"
+            return "VoiceSwitch 当前已停用，不会监听左 Control，也不会自动切换输入法。"
         }
         if model.blockingReason != nil {
             return "当前不可用，请按页面中的建议处理后再试。"
@@ -183,17 +183,17 @@ private struct DashboardSection: View {
 
     private var dashboardSummary: String {
         if !model.isEnabled {
-            return "应用保持常驻，但自动切换暂停。重新启用后才会接管 Option 键。"
+            return "应用保持常驻，但自动切换暂停。重新启用后才会接管左 Control。"
         }
         if model.blockingReason != nil {
             return "当前不可用。请先处理权限、配置或监听问题，再继续使用自动切换。"
         }
-        return "默认保持 Primary IME，按住 Option 切到 Voice IME，松开后恢复。"
+        return "默认保持 Primary IME，轻按一次左 Control 切到 Voice IME，再按一次左 Control 切回。"
     }
 
     private var nextStepText: String? {
         if !model.isEnabled {
-            return "启用 VoiceSwitch 后才会接管 Option 键。"
+            return "启用 VoiceSwitch 后才会接管左 Control。"
         }
         return model.blockingReason?.nextStep
     }

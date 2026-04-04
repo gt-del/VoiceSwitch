@@ -51,7 +51,7 @@ struct SettingsView: View {
         AppCard {
             Text("设置")
                 .font(.title2.weight(.semibold))
-            Text("在这里配置默认输入法、语音输入法，以及按住 Option 时的切换行为。")
+            Text("在这里配置默认输入法、语音输入法，以及轻按左 Control 的切换行为。")
                 .foregroundStyle(.secondary)
         }
     }
@@ -118,7 +118,7 @@ private struct BehaviorSection: View {
                 Text("冷却时长：\(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
             }
 
-            Text("按住 Option 切到 Voice IME，松开 Option 切回 Primary IME。")
+            Text("轻按一次左 Control 切到 Voice IME，再按一次左 Control 切回 Primary IME。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

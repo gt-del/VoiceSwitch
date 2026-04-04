@@ -20,12 +20,12 @@ pub fn transition(
     configuration: &EngineConfiguration,
 ) -> EngineTransition {
     match (current, event) {
-        (EngineState::IdlePrimary, InputBehavior::OptionPressed) => EngineTransition {
+        (EngineState::IdlePrimary, InputBehavior::ControlPressed) => EngineTransition {
             state: EngineState::VoiceHeld,
             action: EngineAction::SwitchToVoice,
             diagnostic: DiagnosticEntry::new(
-                "optionPressed",
-                "pressed_option_switch_to_voice",
+                "controlPressed",
+                "pressed_control_switch_to_voice",
                 EngineState::IdlePrimary,
                 EngineState::VoiceHeld,
             ),
@@ -34,12 +34,12 @@ pub fn transition(
                 configuration.voice_activation_delay,
             ),
         },
-        (EngineState::VoiceHeld, InputBehavior::OptionReleased) => EngineTransition {
+        (EngineState::VoiceHeld, InputBehavior::ControlReleased) => EngineTransition {
             state: EngineState::IdlePrimary,
             action: EngineAction::SwitchToPrimary,
             diagnostic: DiagnosticEntry::new(
-                "optionReleased",
-                "released_option_switch_to_primary",
+                "controlReleased",
+                "released_control_switch_to_primary",
                 EngineState::VoiceHeld,
                 EngineState::IdlePrimary,
             ),
@@ -85,8 +85,8 @@ pub fn transition(
         | (EngineState::VoiceHeld, InputBehavior::TypingKeySpace)
         | (EngineState::VoiceHeld, InputBehavior::TypingKeyDelete)
         | (EngineState::VoiceHeld, InputBehavior::TypingKeyReturnKey)
-        | (EngineState::Cooldown, InputBehavior::OptionPressed)
-        | (EngineState::Cooldown, InputBehavior::OptionReleased) => EngineTransition {
+        | (EngineState::Cooldown, InputBehavior::ControlPressed)
+        | (EngineState::Cooldown, InputBehavior::ControlReleased) => EngineTransition {
             state: current,
             action: EngineAction::NoOp,
             diagnostic: DiagnosticEntry::new(

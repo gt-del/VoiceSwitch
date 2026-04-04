@@ -128,10 +128,10 @@ public struct FFIRustEngineBridge: EngineBridging, Sendable {
 
     private func ffiEvent(from event: InputBehavior) -> VSEvent {
         switch event {
-        case .optionPressed:
-            return VSEventOptionPressed
-        case .optionReleased:
-            return VSEventOptionReleased
+        case .controlPressed:
+            return VSEventControlPressed
+        case .controlReleased:
+            return VSEventControlReleased
         case .typingDetected:
             return VSEventTypingDetected
         case .typingKeyLetters:

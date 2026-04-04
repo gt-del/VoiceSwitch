@@ -11,8 +11,8 @@ typedef enum {
 } VSState;
 
 typedef enum {
-    VSEventOptionPressed = 0,
-    VSEventOptionReleased = 1,
+    VSEventControlPressed = 0,
+    VSEventControlReleased = 1,
     VSEventTypingDetected = 2,
     VSEventTypingKeyLetters = 3,
     VSEventTypingKeyNumbers = 4,

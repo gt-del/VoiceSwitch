@@ -18,8 +18,8 @@ pub enum VSState {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VSEvent {
-    OptionPressed = 0,
-    OptionReleased = 1,
+    ControlPressed = 0,
+    ControlReleased = 1,
     TypingDetected = 2,
     TypingKeyLetters = 3,
     TypingKeyNumbers = 4,
@@ -234,8 +234,8 @@ impl From<EngineState> for VSState {
 impl From<VSEvent> for InputBehavior {
     fn from(value: VSEvent) -> Self {
         match value {
-            VSEvent::OptionPressed => Self::OptionPressed,
-            VSEvent::OptionReleased => Self::OptionReleased,
+            VSEvent::ControlPressed => Self::ControlPressed,
+            VSEvent::ControlReleased => Self::ControlReleased,
             VSEvent::TypingDetected => Self::TypingDetected,
             VSEvent::TypingKeyLetters => Self::TypingKeyLetters,
             VSEvent::TypingKeyNumbers => Self::TypingKeyNumbers,

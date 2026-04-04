@@ -3,8 +3,8 @@
 VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
 
 - 默认保持用户配置的 `Primary IME`
-- 按住 `Option` 切换到 `Voice IME`
-- 松开 `Option` 切回 `Primary IME`
+- 轻按一次左 `Control` 切换到 `Voice IME`
+- 再按一次左 `Control` 切回 `Primary IME`
 - 用户手动切换输入法后进入 `cooldown`
 
 当前版本为 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
@@ -66,8 +66,8 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 当前关键事件：
 
-- `optionPressed`
-- `optionReleased`
+- `controlPressed`
+- `controlReleased`
 - `typingDetected`
 - `typingKeyLetters`
 - `typingKeyNumbers`
@@ -81,8 +81,8 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 核心闭环如下：
 
-1. `idlePrimary + optionPressed -> voiceHeld + switchToVoice`
-2. `voiceHeld + optionReleased -> idlePrimary + switchToPrimary`
+1. 第一次轻按左 `Control` 后触发 `idlePrimary + controlPressed -> voiceHeld + switchToVoice`
+2. 第二次轻按左 `Control` 后触发 `voiceHeld + controlReleased -> idlePrimary + switchToPrimary`
 3. `* + manualSwitchDetected -> cooldown + enterCooldown`
 4. `cooldown + cooldownExpired -> idlePrimary`
 

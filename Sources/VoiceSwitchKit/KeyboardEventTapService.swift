@@ -2,8 +2,8 @@ import ApplicationServices
 import Foundation
 
 public enum KeyboardEventSummary: Equatable, Sendable {
-    case optionPressed(keyCode: Int)
-    case optionReleased(keyCode: Int)
+    case controlPressed(keyCode: Int)
+    case controlReleased(keyCode: Int)
     case typingKey(keyCode: Int, category: TypingKeyCategory)
     case tapDisabled(reason: String)
     case tapRecoveryAttempted(reason: String)
@@ -11,10 +11,10 @@ public enum KeyboardEventSummary: Equatable, Sendable {
 
     public var mappedBehavior: InputBehavior? {
         switch self {
-        case .optionPressed:
-            return .optionPressed
-        case .optionReleased:
-            return .optionReleased
+        case .controlPressed:
+            return .controlPressed
+        case .controlReleased:
+            return .controlReleased
         case let .typingKey(_, category):
             switch category {
             case .letters:
@@ -35,9 +35,15 @@ public enum KeyboardEventSummary: Equatable, Sendable {
 
     public var rawDescription: String {
         switch self {
-        case let .optionPressed(keyCode):
+        case let .controlPressed(keyCode):
+            if keyCode == 59 {
+                return "controlDown(keyCode:\(keyCode))"
+            }
             return "optionDown(keyCode:\(keyCode))"
-        case let .optionReleased(keyCode):
+        case let .controlReleased(keyCode):
+            if keyCode == 59 {
+                return "controlUp(keyCode:\(keyCode))"
+            }
             return "optionUp(keyCode:\(keyCode))"
         case let .typingKey(keyCode, category):
             return "typingKey(keyCode:\(keyCode),category:\(category.rawValue))"
@@ -168,12 +174,13 @@ public final class KeyboardEventTapService: KeyboardEventListening {
     static func summary(for type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> KeyboardEventSummary? {
         switch type {
         case .flagsChanged:
-            guard isOptionKey(keyCode) else {
+            guard isLeftControlKey(keyCode) else {
                 return nil
             }
-            return flags.contains(.maskAlternate)
-                ? .optionPressed(keyCode: Int(keyCode))
-                : .optionReleased(keyCode: Int(keyCode))
+            guard flags.contains(.maskControl) else {
+                return nil
+            }
+            return .controlPressed(keyCode: Int(keyCode))
         case .keyDown:
             guard let category = typingKeyCategory(for: keyCode) else {
                 return nil
@@ -188,8 +195,8 @@ public final class KeyboardEventTapService: KeyboardEventListening {
         }
     }
 
-    static func isOptionKey(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == 58 || keyCode == 61
+    static func isLeftControlKey(_ keyCode: CGKeyCode) -> Bool {
+        keyCode == 59
     }
 
     static func typingKeyCategory(for keyCode: CGKeyCode) -> TypingKeyCategory? {

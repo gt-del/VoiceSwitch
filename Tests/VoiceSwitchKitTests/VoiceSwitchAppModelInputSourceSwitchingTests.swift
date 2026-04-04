@@ -27,8 +27,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionPressed",
-                        reason: "pressed_option_switch_to_voice",
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
                         targetState: .voiceHeld
                     )
@@ -37,7 +37,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(switchingService.switchCalls == ["com.example.voice"])
         #expect(model.logEntries.contains { $0.contains("current_input_source=com.apple.keylayout.ABC") })
@@ -69,8 +69,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionPressed",
-                        reason: "pressed_option_switch_to_voice",
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
                         targetState: .voiceHeld
                     ),
@@ -81,7 +81,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(scheduler.scheduleCallCount == 1)
         #expect(switchingService.switchCalls.isEmpty)
@@ -114,8 +114,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .idlePrimary,
                     action: .switchToPrimary,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionReleased",
-                        reason: "released_option_switch_to_primary",
+                        trigger: "controlReleased",
+                        reason: "released_control_switch_to_primary",
                         sourceState: .voiceHeld,
                         targetState: .idlePrimary
                     )
@@ -124,7 +124,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.controlReleased)
 
         #expect(switchingService.switchCalls == ["com.apple.keylayout.ABC"])
         #expect(model.logEntries.contains { $0.contains("target_input_source=com.apple.keylayout.ABC") })
@@ -155,8 +155,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .idlePrimary,
                     action: .switchToPrimary,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionReleased",
-                        reason: "released_option_switch_to_primary",
+                        trigger: "controlReleased",
+                        reason: "released_control_switch_to_primary",
                         sourceState: .voiceHeld,
                         targetState: .idlePrimary
                     ),
@@ -167,7 +167,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionReleased)
+        try model.sendTestEvent(.controlReleased)
 
         #expect(scheduler.scheduleCallCount == 1)
         #expect(switchingService.switchCalls.isEmpty)
@@ -199,8 +199,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionPressed",
-                        reason: "pressed_option_switch_to_voice",
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
                         targetState: .voiceHeld
                     )
@@ -209,7 +209,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
         #expect(model.statusSummary == "不可用")
@@ -239,8 +239,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionPressed",
-                        reason: "pressed_option_switch_to_voice",
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
                         targetState: .voiceHeld
                     )
@@ -249,7 +249,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
         #expect(model.logEntries.contains { $0.contains("switch_result=skipped") })
@@ -280,8 +280,8 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
                     state: .voiceHeld,
                     action: .switchToVoice,
                     diagnostic: DiagnosticEntry(
-                        trigger: "optionPressed",
-                        reason: "pressed_option_switch_to_voice",
+                        trigger: "controlPressed",
+                        reason: "pressed_control_switch_to_voice",
                         sourceState: .idlePrimary,
                         targetState: .voiceHeld
                     )
@@ -290,7 +290,7 @@ struct VoiceSwitchAppModelInputSourceSwitchingTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(model.logEntries.contains { $0.contains("switch_result=failed") })
         #expect(model.logEntries.contains { $0.contains("Failed to select input source com.example.voice. OSStatus=-50") })

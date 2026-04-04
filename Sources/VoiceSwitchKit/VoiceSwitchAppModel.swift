@@ -299,7 +299,7 @@ public final class VoiceSwitchAppModel {
             permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
             if permissionSnapshot.accessibility != .authorized {
                 keyboardMonitoringErrorMessage = permissionBlockingReason?.message
-                appendLog(.user, "辅助功能权限未就绪，VoiceSwitch 当前无法监听 Option 键。")
+                appendLog(.user, "辅助功能权限未就绪，VoiceSwitch 当前无法监听左 Control。")
                 appendLog(.diagnostic, "listener=keyboard_monitoring authorization=requested result=denied")
             }
         } else {
@@ -495,14 +495,14 @@ public final class VoiceSwitchAppModel {
         case .listenerInactive, .tapDisabled:
             eventTapStatus = .stopped
             keyboardMonitoringErrorMessage = summary.rawDescription
-        case .tapRecoveryAttempted, .optionPressed, .optionReleased, .typingKey:
+        case .tapRecoveryAttempted, .controlPressed, .controlReleased, .typingKey:
             eventTapStatus = .running
             keyboardMonitoringErrorMessage = nil
         }
 
         appendLog(.diagnostic, "Keyboard raw=\(summary.rawDescription)")
 
-        guard let mappedBehavior = summary.mappedBehavior else {
+        guard let mappedBehavior = mappedKeyboardBehavior(for: summary) else {
             return
         }
 
@@ -512,6 +512,17 @@ public final class VoiceSwitchAppModel {
             appendLog(.diagnostic,
                 "Keyboard raw=\(summary.rawDescription) event=\(mappedBehavior.rawValue) failed error=\(String(describing: error))"
             )
+        }
+    }
+
+    private func mappedKeyboardBehavior(for summary: KeyboardEventSummary) -> InputBehavior? {
+        switch summary {
+        case let .controlPressed(keyCode) where keyCode == 59:
+            return currentEngineState == .voiceHeld ? .controlReleased : .controlPressed
+        case let .controlReleased(keyCode) where keyCode == 59:
+            return nil
+        default:
+            return summary.mappedBehavior
         }
     }
 
@@ -913,9 +924,9 @@ public final class VoiceSwitchAppModel {
     private func timerTrigger(for timerKind: EngineTimerKind) -> String {
         switch timerKind {
         case .voiceActivationDelay:
-            return "optionPressed"
+            return "controlPressed"
         case .releaseReturnDelay:
-            return "optionReleased"
+            return "controlReleased"
         case .cooldown:
             return "manualSwitchDetected"
         }
@@ -1007,7 +1018,7 @@ public final class VoiceSwitchAppModel {
             return AppBlockingReason(
                 kind: .accessibilityDenied,
                 title: "辅助功能权限未授权",
-                message: "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。",
+                message: "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听左 Control。",
                 nextStep: "请打开系统设置里的“辅助功能”，勾选当前运行的 VoiceSwitch。"
             )
         }

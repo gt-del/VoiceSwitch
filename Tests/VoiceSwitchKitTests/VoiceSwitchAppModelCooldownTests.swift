@@ -72,10 +72,10 @@ struct VoiceSwitchAppModelCooldownTests {
         )
 
         try model.load()
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
         observationService.emit(.changed(inputSourceID: "com.example.voice", rawDescription: "inputSourceChanged(id:com.example.voice)"))
 
-        #expect(model.lastInputBehavior == .optionPressed)
+        #expect(model.lastInputBehavior == .controlPressed)
         #expect(model.currentEngineState == .voiceHeld)
         #expect(!model.isCooldownActive)
         #expect(scheduler.scheduleCallCount == 0)
@@ -150,7 +150,7 @@ struct VoiceSwitchAppModelCooldownTests {
 
         try model.load()
         observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
 
         #expect(switchingService.switchCalls.isEmpty)
         #expect(model.currentEngineState == .cooldown)
@@ -186,7 +186,7 @@ struct VoiceSwitchAppModelCooldownTests {
 
         try model.load()
         observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
-        try model.sendTestEvent(.optionPressed)
+        try model.sendTestEvent(.controlPressed)
         scheduler.fire()
 
         #expect(model.lastInputBehavior == .cooldownExpired)
@@ -240,24 +240,24 @@ private struct RuleBasedCooldownEngineBridge: EngineBridging {
         configuration: EngineConfiguration
     ) throws -> EngineTransitionResult {
         switch (currentState, event) {
-        case (.idlePrimary, .optionPressed):
+        case (.idlePrimary, .controlPressed):
             return EngineTransitionResult(
                 state: .voiceHeld,
                 action: .switchToVoice,
                 diagnostic: DiagnosticEntry(
-                    trigger: "optionPressed",
-                    reason: "pressed_option_switch_to_voice",
+                    trigger: "controlPressed",
+                    reason: "pressed_control_switch_to_voice",
                     sourceState: .idlePrimary,
                     targetState: .voiceHeld
                 )
             )
-        case (.voiceHeld, .optionReleased):
+        case (.voiceHeld, .controlReleased):
             return EngineTransitionResult(
                 state: .idlePrimary,
                 action: .switchToPrimary,
                 diagnostic: DiagnosticEntry(
-                    trigger: "optionReleased",
-                    reason: "released_option_switch_to_primary",
+                    trigger: "controlReleased",
+                    reason: "released_control_switch_to_primary",
                     sourceState: .voiceHeld,
                     targetState: .idlePrimary
                 )

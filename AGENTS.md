@@ -60,7 +60,7 @@ VoiceSwitch 是一个运行于 macOS 的菜单栏常驻工具，用于根据用�
 - `state machine semantics`
   指状态、事件、转移条件、评分阈值、cooldown 语义及其解释含义。
 - `abstract event`
-  指脱离具体 macOS API 细节后的领域事件，例如 `optionPressed`、`manualSwitchDetected`、`permissionUnavailable`。
+  指脱离具体 macOS API 细节后的领域事件，例如 `controlPressed`、`manualSwitchDetected`、`permissionUnavailable`。
 - `manual override`
   指用户手动切换输入法后，自动切换逻辑必须让位的行为。
 - `cooldown`

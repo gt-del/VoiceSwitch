@@ -4,8 +4,8 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum InputBehavior {
-    OptionPressed,
-    OptionReleased,
+    ControlPressed,
+    ControlReleased,
     TypingDetected,
     TypingKeyLetters,
     TypingKeyNumbers,
@@ -19,8 +19,8 @@ pub enum InputBehavior {
 impl InputBehavior {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::OptionPressed => "optionPressed",
-            Self::OptionReleased => "optionReleased",
+            Self::ControlPressed => "controlPressed",
+            Self::ControlReleased => "controlReleased",
             Self::TypingDetected => "typingDetected",
             Self::TypingKeyLetters => "typingKeyLetters",
             Self::TypingKeyNumbers => "typingKeyNumbers",
@@ -38,8 +38,8 @@ impl FromStr for InputBehavior {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "optionPressed" => Ok(Self::OptionPressed),
-            "optionReleased" => Ok(Self::OptionReleased),
+            "controlPressed" => Ok(Self::ControlPressed),
+            "controlReleased" => Ok(Self::ControlReleased),
             "typingDetected" => Ok(Self::TypingDetected),
             "typingKeyLetters" => Ok(Self::TypingKeyLetters),
             "typingKeyNumbers" => Ok(Self::TypingKeyNumbers),

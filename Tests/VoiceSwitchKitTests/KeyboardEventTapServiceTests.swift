@@ -4,27 +4,38 @@ import Testing
 
 struct KeyboardEventTapServiceTests {
     @Test
-    func optionFlagsChangedMapsToOptionPressed() {
+    func leftControlFlagsChangedMapsToControlPressedBehavior() {
         let summary = KeyboardEventTapService.summary(
             for: .flagsChanged,
-            keyCode: 58,
-            flags: .maskAlternate
+            keyCode: 59,
+            flags: .maskControl
         )
 
-        #expect(summary == .optionPressed(keyCode: 58))
-        #expect(summary?.mappedBehavior == .optionPressed)
+        #expect(summary == .controlPressed(keyCode: 59))
+        #expect(summary?.mappedBehavior == .controlPressed)
+        #expect(summary?.rawDescription == "controlDown(keyCode:59)")
     }
 
     @Test
-    func optionFlagsChangedWithoutAlternateMapsToOptionReleased() {
+    func leftControlFlagsChangedWithoutMaskControlIsIgnored() {
         let summary = KeyboardEventTapService.summary(
             for: .flagsChanged,
-            keyCode: 61,
+            keyCode: 59,
             flags: []
         )
 
-        #expect(summary == .optionReleased(keyCode: 61))
-        #expect(summary?.mappedBehavior == .optionReleased)
+        #expect(summary == nil)
+    }
+
+    @Test
+    func rightControlFlagsChangedIsIgnored() {
+        let summary = KeyboardEventTapService.summary(
+            for: .flagsChanged,
+            keyCode: 62,
+            flags: .maskControl
+        )
+
+        #expect(summary == nil)
     }
 
     @Test
