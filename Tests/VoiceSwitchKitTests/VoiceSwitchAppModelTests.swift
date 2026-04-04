@@ -124,6 +124,30 @@ struct VoiceSwitchAppModelTests {
         #expect(model.configurationIssues.count == 1)
         #expect(model.configurationIssues.first?.contains("Primary IME") == true)
     }
+
+    @Test
+    func loadLogsLaunchAtLoginStatusMismatch() throws {
+        let store = InMemorySettingsStore(
+            initial: VoiceSwitchSettings(
+                launchAtLoginEnabled: true
+            )
+        )
+        let launchAtLoginController = StubLaunchAtLoginController(isEnabled: false)
+        let model = VoiceSwitchAppModel(
+            settingsStore: store,
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
+            launchAtLoginController: launchAtLoginController
+        )
+
+        try model.load()
+
+        #expect(model.launchAtLoginEnabled == false)
+        #expect(model.logEntries.contains { $0.contains("trigger=launch_at_login") })
+        #expect(model.logEntries.contains { $0.contains("reason=status_mismatch") })
+        #expect(model.logEntries.contains { $0.contains("requested=true") })
+        #expect(model.logEntries.contains { $0.contains("actual=false") })
+    }
 }
 
 private final class InMemorySettingsStore: SettingsStoring, @unchecked Sendable {

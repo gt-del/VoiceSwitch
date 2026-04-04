@@ -113,6 +113,57 @@ struct RustEngineBridgeTests {
             #expect(result.diagnostic.reason == "entered_option_pending")
         }
     }
+
+    @Test
+    func ffiBridgeMaintainsCoreTransitionSequence() throws {
+        let bridge = FFIRustEngineBridge()
+        let configuration = EngineConfiguration()
+
+        let optionPressed = try bridge.transition(
+            from: .idlePrimary,
+            event: .optionPressed,
+            configuration: configuration
+        )
+        #expect(optionPressed.state == .optionPending)
+        #expect(optionPressed.action == .noOp)
+        #expect(optionPressed.diagnostic.reason == "entered_option_pending")
+
+        let optionExpired = try bridge.transition(
+            from: optionPressed.state,
+            event: .optionWindowExpired,
+            configuration: configuration
+        )
+        #expect(optionExpired.state == .voiceActive)
+        #expect(optionExpired.action == .switchToVoice)
+        #expect(optionExpired.diagnostic.reason == "activated_voice_after_option_window")
+
+        let typing = try bridge.transition(
+            from: optionExpired.state,
+            event: .typingKeyLetters,
+            configuration: configuration
+        )
+        #expect(typing.state == .idlePrimary)
+        #expect(typing.action == .switchToPrimary)
+        #expect(typing.diagnostic.reason == "typing_key_whitelisted_letters")
+
+        let manualSwitch = try bridge.transition(
+            from: typing.state,
+            event: .manualSwitchDetected,
+            configuration: configuration
+        )
+        #expect(manualSwitch.state == .cooldown)
+        #expect(manualSwitch.action == .enterCooldown)
+        #expect(manualSwitch.diagnostic.reason == "entered_cooldown_after_manual_switch")
+
+        let cooldownExpired = try bridge.transition(
+            from: manualSwitch.state,
+            event: .cooldownExpired,
+            configuration: configuration
+        )
+        #expect(cooldownExpired.state == .idlePrimary)
+        #expect(cooldownExpired.action == .noOp)
+        #expect(cooldownExpired.diagnostic.reason == "cooldown_expired")
+    }
 }
 
 private struct StubRustCommandRunner: RustCommandRunning {
