@@ -29,17 +29,16 @@ cp "$INFO_PLIST_SOURCE" "$CONTENTS_DIR/Info.plist"
 cp "$EXECUTABLE_PATH" "$MACOS_DIR/$EXECUTABLE_NAME"
 chmod +x "$MACOS_DIR/$EXECUTABLE_NAME"
 
-if command -v codesign >/dev/null 2>&1; then
-  codesign --remove-signature "$MACOS_DIR/$EXECUTABLE_NAME" >/dev/null 2>&1 || true
-  codesign --remove-signature "$APP_BUNDLE" >/dev/null 2>&1 || true
-fi
-
 if [ ! -d "$ICONSET_DIR" ]; then
   echo "error: iconset not found at $ICONSET_DIR" >&2
   exit 1
 fi
 
 iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
+
+if command -v codesign >/dev/null 2>&1; then
+  codesign --force --deep --sign - "$APP_BUNDLE" >/dev/null 2>&1 || true
+fi
 
 pkill -x "$EXECUTABLE_NAME" >/dev/null 2>&1 || true
 pkill -f "$APP_BUNDLE/Contents/MacOS/$EXECUTABLE_NAME" >/dev/null 2>&1 || true
