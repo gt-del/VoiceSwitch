@@ -53,18 +53,65 @@ struct RustEngineBridgeTests {
     }
 
     @Test
-    func bridgeCanInvokeRustCli() throws {
+    func defaultBridgeUsesFFIBackend() {
         let bridge = RustEngineBridge()
 
-        let result = try bridge.transition(
-            from: .idlePrimary,
-            event: .optionPressed,
-            configuration: EngineConfiguration()
+        #expect(bridge.backendKind == .ffi)
+    }
+
+    @Test
+    func ffiBridgeMatchesCliBridge() throws {
+        let ffiBridge = FFIRustEngineBridge()
+        let cliBridge = CLIRustEngineBridge()
+        let configuration = EngineConfiguration(
+            optionPendingWindow: 0.32,
+            cooldownDuration: 6,
+            voiceExitDelay: 1.1,
+            typingKeyWhitelist: [.letters, .space]
         )
 
-        #expect(result.state == .optionPending)
-        #expect(result.action == .noOp)
-        #expect(result.diagnostic.reason == "entered_option_pending")
+        let ffiResult = try ffiBridge.transition(
+            from: .voiceActive,
+            event: .typingKeyLetters,
+            configuration: configuration
+        )
+        let cliResult = try cliBridge.transition(
+            from: .voiceActive,
+            event: .typingKeyLetters,
+            configuration: configuration
+        )
+
+        #expect(ffiResult == cliResult)
+    }
+
+    @Test
+    func ffiBridgeReturnsInvalidConfigurationError() throws {
+        let bridge = FFIRustEngineBridge()
+
+        #expect(throws: RustEngineBridgeError.self) {
+            _ = try bridge.transition(
+                from: .idlePrimary,
+                event: .optionPressed,
+                configuration: EngineConfiguration(typingKeyWhitelist: [])
+            )
+        }
+    }
+
+    @Test
+    func ffiBridgeSupportsRepeatedCallsWithoutCliRunner() throws {
+        let bridge = FFIRustEngineBridge()
+
+        for _ in 0..<100 {
+            let result = try bridge.transition(
+                from: .idlePrimary,
+                event: .optionPressed,
+                configuration: EngineConfiguration()
+            )
+
+            #expect(result.state == .optionPending)
+            #expect(result.action == .noOp)
+            #expect(result.diagnostic.reason == "entered_option_pending")
+        }
     }
 }
 

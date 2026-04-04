@@ -1,6 +1,10 @@
 // swift-tools-version: 6.2
 
 import PackageDescription
+import Foundation
+
+let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
+let rustFFILibraryDirectory = "\(packageDirectory)/.build/plugins/outputs/voiceswitch/VoiceSwitchFFI/destination/BuildRustCoreFFIPlugin"
 
 let package = Package(
     name: "VoiceSwitch",
@@ -13,7 +17,19 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "VoiceSwitchKit"
+            name: "VoiceSwitchFFI",
+            publicHeadersPath: "include",
+            linkerSettings: [
+                .unsafeFlags([
+                    "-L", rustFFILibraryDirectory,
+                    "-lvoiceswitch_core",
+                ]),
+            ],
+            plugins: ["BuildRustCoreFFIPlugin"]
+        ),
+        .target(
+            name: "VoiceSwitchKit",
+            dependencies: ["VoiceSwitchFFI"]
         ),
         .executableTarget(
             name: "VoiceSwitchApp",
@@ -22,6 +38,10 @@ let package = Package(
         .testTarget(
             name: "VoiceSwitchKitTests",
             dependencies: ["VoiceSwitchKit"]
+        ),
+        .plugin(
+            name: "BuildRustCoreFFIPlugin",
+            capability: .buildTool()
         ),
     ]
 )

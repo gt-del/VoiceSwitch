@@ -1,0 +1,4 @@
+module VoiceSwitchFFI {
+    header "voiceswitch_ffi.h"
+    export *
+}
