@@ -7,9 +7,9 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Status") {
-                Toggle("Enable VoiceSwitch", isOn: enabledBinding)
-                Text("Runtime Status: \(model.statusSummary)")
+            Section("状态") {
+                Toggle("启用 VoiceSwitch", isOn: enabledBinding)
+                Text("当前状态：\(model.statusSummary)")
                 Text(statusMessage)
                     .foregroundStyle(model.canRun && model.isEnabled ? Color.secondary : Color.orange)
             }
@@ -20,7 +20,7 @@ struct SettingsView: View {
 
             PermissionsSection(model: model)
 
-            Button("Save") {
+            Button("保存配置") {
                 model.saveSelections()
             }
         }
@@ -47,16 +47,16 @@ private struct InputSourcesSection: View {
     @Bindable var model: VoiceSwitchAppModel
 
     var body: some View {
-        Section("Input Sources") {
+        Section("输入法") {
             Picker("Primary IME", selection: primaryBinding) {
-                Text("Not Set").tag(String?.none)
+                Text("未设置").tag(String?.none)
                 ForEach(model.availableInputSources) { source in
                     Text(source.displayName).tag(String?.some(source.id))
                 }
             }
 
             Picker("Voice IME", selection: voiceBinding) {
-                Text("Not Set").tag(String?.none)
+                Text("未设置").tag(String?.none)
                 ForEach(model.availableInputSources) { source in
                     Text(source.displayName).tag(String?.some(source.id))
                 }
@@ -90,17 +90,17 @@ private struct BehaviorSection: View {
     @Bindable var model: VoiceSwitchAppModel
 
     var body: some View {
-        Section("Behavior") {
+        Section("行为") {
             Stepper(value: $model.voiceActivationDelay, in: 0.0...0.3, step: 0.01) {
-                Text("Voice Activation Delay: \(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
+                Text("语音激活延迟：\(model.voiceActivationDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
             Stepper(value: $model.releaseReturnDelay, in: 0.0...0.3, step: 0.01) {
-                Text("Release Return Delay: \(model.releaseReturnDelay, format: .number.precision(.fractionLength(2)))s")
+                Text("松开返回延迟：\(model.releaseReturnDelay, format: .number.precision(.fractionLength(2)))s")
             }
 
             Stepper(value: $model.cooldownDuration, in: 0.5...30.0, step: 0.5) {
-                Text("Cooldown Duration: \(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
+                Text("冷却时长：\(model.cooldownDuration, format: .number.precision(.fractionLength(1)))s")
             }
 
             Text("按住 Option 切到 Voice IME，松开 Option 切回 Primary IME。")
@@ -114,33 +114,33 @@ private struct PermissionsSection: View {
     @Bindable var model: VoiceSwitchAppModel
 
     var body: some View {
-        Section("Permissions & System") {
-            Text("Accessibility: \(model.permissionSnapshot.accessibility.rawValue)")
-            Text("Input Monitoring: \(model.permissionSnapshot.inputMonitoring.rawValue)")
-            Text("Event Tap: \(model.eventTapStatus.rawValue)")
+        Section("权限与系统") {
+            Text("辅助功能权限：\(model.permissionSnapshot.accessibility.rawValue)")
+            Text("输入监听权限：\(model.permissionSnapshot.inputMonitoring.rawValue)")
+            Text("键盘监听：\(model.eventTapStatus.rawValue)")
 
             if let errorMessage = model.keyboardMonitoringErrorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.orange)
             }
 
-            Toggle("Launch at Login", isOn: $model.launchAtLoginEnabled)
+            Toggle("登录时启动", isOn: $model.launchAtLoginEnabled)
 
             if let errorMessage = model.launchAtLoginErrorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.orange)
             }
 
-            Text("If you are running from `swift run`, macOS may not register this executable like a normal app bundle. Open Accessibility settings and add the built VoiceSwitch binary manually if needed.")
+            Text("如果你是通过 `swift run` 启动，macOS 可能不会把它识别成标准 App Bundle。遇到权限问题时，优先使用 `.app` 形态启动。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack {
-                Button("Retry Monitoring") {
+                Button("重试监听") {
                     model.retryKeyboardMonitoring()
                 }
 
-                Button("Open System Settings") {
+                Button("打开系统设置") {
                     openAccessibilitySettings()
                 }
             }

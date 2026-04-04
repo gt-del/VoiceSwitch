@@ -36,17 +36,17 @@ public final class VoiceSwitchAppModel {
             issues.append(unavailableVoiceIssue)
         }
         if selectedPrimaryInputSourceID == nil {
-            issues.append("Primary IME is not configured.")
+            issues.append("未配置默认输入法。")
         }
         if selectedVoiceInputSourceID == nil {
-            issues.append("Voice IME is not configured.")
+            issues.append("未配置语音输入法。")
         }
         if
             let primaryID = selectedPrimaryInputSourceID,
             let voiceID = selectedVoiceInputSourceID,
             primaryID == voiceID
         {
-            issues.append("Primary IME and Voice IME must be different.")
+            issues.append("默认输入法和语音输入法不能相同。")
         }
 
         return issues
@@ -61,17 +61,17 @@ public final class VoiceSwitchAppModel {
             return "未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。"
         }
         if selectedPrimaryInputSourceID == nil {
-            return "Primary IME is not configured."
+            return "未配置默认输入法。"
         }
         if selectedVoiceInputSourceID == nil {
-            return "Voice IME is not configured."
+            return "未配置语音输入法。"
         }
         if
             let primaryID = selectedPrimaryInputSourceID,
             let voiceID = selectedVoiceInputSourceID,
             primaryID == voiceID
         {
-            return "Primary IME and Voice IME must be different."
+            return "默认输入法和语音输入法不能相同。"
         }
         if let unavailablePrimaryIssue {
             return unavailablePrimaryIssue
@@ -80,7 +80,7 @@ public final class VoiceSwitchAppModel {
             return unavailableVoiceIssue
         }
         if keyboardEventService != nil && isEnabled && eventTapStatus != .running {
-            return "Keyboard monitoring is not running. Retry Monitoring to resume automation."
+            return "键盘监听未运行。请点击“重试监听”恢复自动切换。"
         }
 
         return nil
@@ -88,24 +88,24 @@ public final class VoiceSwitchAppModel {
 
     public var statusSummary: String {
         if !isEnabled {
-            return "Disabled"
+            return "已停用"
         }
         if !canRun {
-            return "Unavailable"
+            return "不可用"
         }
 
         switch currentEngineState {
         case .idlePrimary:
-            return "Typing"
+            return "默认输入"
         case .voiceHeld:
-            return "Voice Held"
+            return "语音按住"
         case .cooldown:
-            return "Cooldown"
+            return "冷却中"
         }
     }
 
     public var configurationSummary: String {
-        "Primary: \(displayName(forInputSourceID: selectedPrimaryInputSourceID)) | Voice: \(displayName(forInputSourceID: selectedVoiceInputSourceID))"
+        "默认：\(displayName(forInputSourceID: selectedPrimaryInputSourceID)) | 语音：\(displayName(forInputSourceID: selectedVoiceInputSourceID))"
     }
 
     public var selectedPrimaryInputSourceName: String {
@@ -190,7 +190,7 @@ public final class VoiceSwitchAppModel {
         if settings.isEnabled && permissionSnapshot.accessibility != .authorized {
             permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
             if permissionSnapshot.accessibility != .authorized {
-                keyboardMonitoringErrorMessage = "Accessibility permission denied. Approve VoiceSwitch in Privacy & Security > Accessibility, then retry."
+                keyboardMonitoringErrorMessage = "未授予辅助功能权限。请在“隐私与安全性 > 辅助功能”中允许 VoiceSwitch，然后再重试。"
                 logEntries.append("listener=keyboard_monitoring authorization=requested result=denied")
             }
         } else {
@@ -203,7 +203,7 @@ public final class VoiceSwitchAppModel {
 
         if let primaryID = settings.primaryInputSourceID, !availableIDs.contains(primaryID) {
             selectedPrimaryInputSourceID = nil
-            unavailablePrimaryIssue = "Primary IME is no longer available. Please choose another input source."
+            unavailablePrimaryIssue = "默认输入法已失效，请重新选择可用输入法。"
             logEntries.append("Primary IME configuration became unavailable: \(primaryID)")
         } else {
             selectedPrimaryInputSourceID = settings.primaryInputSourceID
@@ -211,7 +211,7 @@ public final class VoiceSwitchAppModel {
 
         if let voiceID = settings.voiceInputSourceID, !availableIDs.contains(voiceID) {
             selectedVoiceInputSourceID = nil
-            unavailableVoiceIssue = "Voice IME is no longer available. Please choose another input source."
+            unavailableVoiceIssue = "语音输入法已失效，请重新选择可用输入法。"
             logEntries.append("Voice IME configuration became unavailable: \(voiceID)")
         } else {
             selectedVoiceInputSourceID = settings.voiceInputSourceID
@@ -291,7 +291,7 @@ public final class VoiceSwitchAppModel {
     public func retryKeyboardMonitoring() {
         permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
         guard permissionSnapshot.accessibility == .authorized else {
-            keyboardMonitoringErrorMessage = "Accessibility permission denied. Approve VoiceSwitch in Privacy & Security > Accessibility, then retry."
+            keyboardMonitoringErrorMessage = "未授予辅助功能权限。请在“隐私与安全性 > 辅助功能”中允许 VoiceSwitch，然后再重试。"
             logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=accessibility_denied")
             eventTapStatus = .stopped
             return

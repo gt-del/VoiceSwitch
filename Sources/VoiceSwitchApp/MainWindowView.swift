@@ -24,18 +24,18 @@ struct MainWindowView: View {
                     )
                     .padding(20)
                 }
-                .tabItem { Label("Dashboard", systemImage: "gauge.with.dots.needle.50percent") }
+                .tabItem { Label("概览", systemImage: "gauge.with.dots.needle.50percent") }
                 .tag(MainWindowTab.dashboard)
 
                 SettingsView(model: model)
-                    .tabItem { Label("Settings", systemImage: "slider.horizontal.3") }
+                    .tabItem { Label("设置", systemImage: "slider.horizontal.3") }
                     .tag(MainWindowTab.settings)
 
                 ScrollView {
                     LogsSection(model: model)
                         .padding(20)
                 }
-                .tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
+                .tabItem { Label("日志", systemImage: "list.bullet.rectangle") }
                 .tag(MainWindowTab.logs)
             }
         }
@@ -109,25 +109,25 @@ private struct DashboardSection: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
-                summaryCard(title: "Status", value: model.statusSummary)
-                summaryCard(title: "Listener", value: listenerSummary)
-                summaryCard(title: "Primary IME", value: model.selectedPrimaryInputSourceName)
-                summaryCard(title: "Voice IME", value: model.selectedVoiceInputSourceName)
+                summaryCard(title: "当前状态", value: model.statusSummary)
+                summaryCard(title: "监听状态", value: listenerSummary)
+                summaryCard(title: "默认输入法", value: model.selectedPrimaryInputSourceName)
+                summaryCard(title: "语音输入法", value: model.selectedVoiceInputSourceName)
             }
 
             detailPanel
 
             HStack(spacing: 12) {
-                Button(model.isEnabled ? "Disable" : "Enable") {
+                Button(model.isEnabled ? "停用" : "启用") {
                     model.setEnabled(!model.isEnabled)
                 }
-                Button("Retry Monitoring") {
+                Button("重试监听") {
                     model.retryKeyboardMonitoring()
                 }
-                Button("Open Settings") {
+                Button("打开设置") {
                     openSettings()
                 }
-                Button("Open Logs") {
+                Button("打开日志") {
                     openLogs()
                 }
             }
@@ -138,9 +138,9 @@ private struct DashboardSection: View {
 
     private var listenerSummary: String {
         if !model.isEnabled {
-            return "Disabled"
+            return "已停用"
         }
-        return model.eventTapStatus == .running ? "Running" : "Stopped"
+        return model.eventTapStatus == .running ? "运行中" : "未运行"
     }
 
     private var dashboardSummary: String {
@@ -156,37 +156,37 @@ private struct DashboardSection: View {
     @ViewBuilder
     private var detailPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Overview")
+            Text("运行概览")
                 .font(.headline)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                 GridRow {
-                    Text("Accessibility")
+                    Text("辅助功能权限")
                         .foregroundStyle(.secondary)
                     Text(model.permissionSnapshot.accessibility.rawValue)
                 }
                 GridRow {
-                    Text("Input Monitoring")
+                    Text("输入监听权限")
                         .foregroundStyle(.secondary)
                     Text(model.permissionSnapshot.inputMonitoring.rawValue)
                 }
                 GridRow {
-                    Text("Event Tap")
+                    Text("键盘监听")
                         .foregroundStyle(.secondary)
                     Text(model.eventTapStatus.rawValue)
                 }
                 GridRow {
-                    Text("Current Pair")
+                    Text("当前输入法组合")
                         .foregroundStyle(.secondary)
                     Text(model.configurationSummary)
                 }
                 GridRow {
-                    Text("Last Action")
+                    Text("最近动作")
                         .foregroundStyle(.secondary)
                     Text(model.lastEngineAction?.rawValue ?? "none")
                 }
                 GridRow {
-                    Text("Last Raw Event")
+                    Text("最近原始事件")
                         .foregroundStyle(.secondary)
                     Text(model.lastRawKeyboardEventSummary ?? "none")
                 }
@@ -194,23 +194,31 @@ private struct DashboardSection: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.primary.opacity(0.06))
+        )
     }
 
     @ViewBuilder
     private var issuePanel: some View {
         if let issue = model.blockingIssue {
             VStack(alignment: .leading, spacing: 6) {
-                Label("Blocking Issue", systemImage: "exclamationmark.triangle.fill")
+                Label("当前阻塞问题", systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                 Text(issue)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
-            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.orange.opacity(0.25))
+            )
         } else if !model.configurationIssues.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                Label("Configuration Issues", systemImage: "slider.horizontal.3")
+                Label("配置问题", systemImage: "slider.horizontal.3")
                     .font(.headline)
                 ForEach(model.configurationIssues, id: \.self) { issue in
                     Text(issue)
@@ -218,7 +226,11 @@ private struct DashboardSection: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
-            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.orange.opacity(0.25))
+            )
         }
     }
 
@@ -232,7 +244,15 @@ private struct DashboardSection: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.primary.opacity(0.06))
+        )
+    }
+
+    private var cardFill: Color {
+        Color(nsColor: .controlBackgroundColor)
     }
 }
 
