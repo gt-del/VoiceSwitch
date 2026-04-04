@@ -5,18 +5,38 @@ public struct SystemPermissionStatusProvider: PermissionStatusProviding, Sendabl
     public init() {}
 
     public func snapshot() -> PermissionSnapshot {
-        PermissionSnapshot(
-            accessibility: AXIsProcessTrusted() ? .authorized : .denied,
-            inputMonitoring: .unknown
+        makeSnapshot(
+            accessibilityTrusted: AXIsProcessTrusted(),
+            inputMonitoringTrusted: CGPreflightListenEventAccess()
         )
     }
 
     public func requestAccessibilityAuthorization() -> PermissionSnapshot {
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        let isAuthorized = AXIsProcessTrustedWithOptions(options)
-        return PermissionSnapshot(
-            accessibility: isAuthorized ? .authorized : .denied,
-            inputMonitoring: .unknown
+        let accessibilityTrusted = AXIsProcessTrustedWithOptions(options)
+        return makeSnapshot(
+            accessibilityTrusted: accessibilityTrusted,
+            inputMonitoringTrusted: CGPreflightListenEventAccess()
+        )
+    }
+
+    public func requestInputMonitoringAuthorization() -> PermissionSnapshot {
+        let inputMonitoringTrusted = CGRequestListenEventAccess()
+        return makeSnapshot(
+            accessibilityTrusted: AXIsProcessTrusted(),
+            inputMonitoringTrusted: inputMonitoringTrusted
+        )
+    }
+
+    private func makeSnapshot(
+        accessibilityTrusted: Bool,
+        inputMonitoringTrusted: Bool
+    ) -> PermissionSnapshot {
+        PermissionSnapshot(
+            accessibility: accessibilityTrusted ? .authorized : .denied,
+            inputMonitoring: inputMonitoringTrusted ? .authorized : .denied,
+            accessibilityTrusted: accessibilityTrusted,
+            inputMonitoringTrusted: inputMonitoringTrusted
         )
     }
 }

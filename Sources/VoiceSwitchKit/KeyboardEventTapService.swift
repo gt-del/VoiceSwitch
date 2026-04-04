@@ -81,6 +81,10 @@ public final class KeyboardEventTapService: KeyboardEventListening {
             emit(.listenerInactive(reason: "Accessibility permission denied"))
             return
         }
+        guard permissionSnapshot.inputMonitoring == .authorized else {
+            emit(.listenerInactive(reason: "Input Monitoring permission denied"))
+            return
+        }
 
         let interestedEvents =
             (1 << CGEventType.keyDown.rawValue) |

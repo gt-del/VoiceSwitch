@@ -57,8 +57,11 @@ public final class VoiceSwitchAppModel {
     }
 
     public var blockingIssue: String? {
-        if permissionSnapshot.accessibility != .authorized {
-            return "未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。"
+        if let accessibilityBlockingIssue {
+            return accessibilityBlockingIssue
+        }
+        if let inputMonitoringBlockingIssue {
+            return inputMonitoringBlockingIssue
         }
         if selectedPrimaryInputSourceID == nil {
             return "未配置默认输入法。"
@@ -120,8 +123,16 @@ public final class VoiceSwitchAppModel {
         displayLabel(for: permissionSnapshot.accessibility)
     }
 
+    public var accessibilityTrustedValueLabel: String {
+        permissionSnapshot.accessibilityTrusted ? "true" : "false"
+    }
+
     public var inputMonitoringStatusLabel: String {
         displayLabel(for: permissionSnapshot.inputMonitoring)
+    }
+
+    public var inputMonitoringTrustedValueLabel: String {
+        permissionSnapshot.inputMonitoringTrusted ? "true" : "false"
     }
 
     public var keyboardListenerStatusLabel: String {
@@ -177,6 +188,18 @@ public final class VoiceSwitchAppModel {
         case .cooldownExpired:
             return "冷却结束"
         }
+    }
+
+    public var runtimeExecutablePath: String {
+        permissionSnapshot.executablePath
+    }
+
+    public var runtimeBundleIdentifier: String {
+        permissionSnapshot.bundleIdentifier ?? "无"
+    }
+
+    public var runtimeBundlePath: String {
+        permissionSnapshot.bundlePath ?? "无"
     }
 
     private let settingsStore: SettingsStoring
@@ -253,7 +276,7 @@ public final class VoiceSwitchAppModel {
         if settings.isEnabled && permissionSnapshot.accessibility != .authorized {
             permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
             if permissionSnapshot.accessibility != .authorized {
-                keyboardMonitoringErrorMessage = "未授予辅助功能权限。请在“隐私与安全性 > 辅助功能”中允许 VoiceSwitch，然后再重试。"
+                keyboardMonitoringErrorMessage = accessibilityBlockingIssue
                 logEntries.append("listener=keyboard_monitoring authorization=requested result=denied")
             }
         } else {
@@ -354,8 +377,16 @@ public final class VoiceSwitchAppModel {
     public func retryKeyboardMonitoring() {
         permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
         guard permissionSnapshot.accessibility == .authorized else {
-            keyboardMonitoringErrorMessage = "未授予辅助功能权限。请在“隐私与安全性 > 辅助功能”中允许 VoiceSwitch，然后再重试。"
+            keyboardMonitoringErrorMessage = accessibilityBlockingIssue
             logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=accessibility_denied")
+            eventTapStatus = .stopped
+            return
+        }
+
+        permissionSnapshot = permissionProvider.requestInputMonitoringAuthorization()
+        guard permissionSnapshot.inputMonitoring == .authorized else {
+            keyboardMonitoringErrorMessage = inputMonitoringBlockingIssue
+            logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=input_monitoring_denied")
             eventTapStatus = .stopped
             return
         }
@@ -628,7 +659,10 @@ public final class VoiceSwitchAppModel {
     }
 
     private var shouldRunAutomation: Bool {
-        isEnabled && permissionSnapshot.accessibility == .authorized && configurationIssues.isEmpty
+        isEnabled &&
+        permissionSnapshot.accessibility == .authorized &&
+        permissionSnapshot.inputMonitoring == .authorized &&
+        configurationIssues.isEmpty
     }
 
     private func updateAutomationState(forceRestart: Bool = false) {
@@ -830,6 +864,36 @@ public final class VoiceSwitchAppModel {
         case .unknown:
             return "未知"
         }
+    }
+
+    private var accessibilityBlockingIssue: String? {
+        guard permissionSnapshot.accessibility != .authorized else {
+            return nil
+        }
+
+        if runtimeTargetMismatchLikely {
+            return "辅助功能权限可能已授予其他运行目标，但当前进程未命中已授权条目。请改用 .app 包，或在系统设置里重新勾选当前运行路径。"
+        }
+
+        return "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。"
+    }
+
+    private var inputMonitoringBlockingIssue: String? {
+        guard permissionSnapshot.inputMonitoring != .authorized else {
+            return nil
+        }
+
+        if runtimeTargetMismatchLikely {
+            return "输入监听权限可能已授予其他运行目标，但当前进程未命中已授权条目。请改用 .app 包，或在系统设置里重新勾选当前运行路径。"
+        }
+
+        return "系统尚未授予输入监听权限，VoiceSwitch 当前无法读取全局键盘事件。"
+    }
+
+    private var runtimeTargetMismatchLikely: Bool {
+        permissionSnapshot.bundleIdentifier == nil ||
+        permissionSnapshot.bundlePath == nil ||
+        permissionSnapshot.executablePath.contains("/.build/")
     }
 
     private func logAutomationStatusChange(reason: String) {

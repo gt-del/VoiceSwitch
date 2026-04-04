@@ -24,7 +24,7 @@ struct VoiceSwitchAppModelTests {
             ]
         )
         let permissions = StubPermissionProvider(
-            current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)
+            current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)
         )
         let launchAtLoginController = StubLaunchAtLoginController(isEnabled: true)
         let model = VoiceSwitchAppModel(
@@ -164,7 +164,7 @@ struct VoiceSwitchAppModelTests {
                 )
             ),
             inputSourceProvider: StubInputSourceProvider(sources: []),
-            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown))
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
         )
 
         try model.load()
@@ -188,7 +188,7 @@ struct VoiceSwitchAppModelTests {
                     InputSourceDescriptor(id: "same.id", displayName: "Same", isSelected: true),
                 ]
             ),
-            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown))
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
         )
 
         try model.load()
@@ -203,7 +203,7 @@ struct VoiceSwitchAppModelTests {
         let model = VoiceSwitchAppModel(
             settingsStore: InMemorySettingsStore(initial: VoiceSwitchSettings()),
             inputSourceProvider: StubInputSourceProvider(sources: []),
-            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .unknown))
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .denied, inputMonitoring: .authorized))
         )
 
         try model.load()
@@ -211,6 +211,92 @@ struct VoiceSwitchAppModelTests {
         #expect(!model.canRun)
         #expect(model.statusSummary == "不可用")
         #expect(model.blockingIssue?.contains("辅助功能权限") == true)
+    }
+
+    @Test
+    func deniedInputMonitoringMakesStatusUnavailable() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "primary.id",
+                    voiceInputSourceID: "voice.id"
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(
+                current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .denied)
+            )
+        )
+
+        try model.load()
+
+        #expect(!model.canRun)
+        #expect(model.statusSummary == "不可用")
+        #expect(model.blockingIssue?.contains("输入监听权限") == true)
+    }
+
+    @Test
+    func accessibilityMismatchUsesDifferentBlockingMessage() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "primary.id",
+                    voiceInputSourceID: "voice.id"
+                )
+            ),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(
+                current: PermissionSnapshot(
+                    accessibility: .denied,
+                    inputMonitoring: .authorized,
+                    accessibilityTrusted: false,
+                    inputMonitoringTrusted: true,
+                    executablePath: "/Users/didi/Code/github/VoiceSwitch/.build/debug/VoiceSwitchApp",
+                    bundleIdentifier: nil,
+                    bundlePath: nil
+                )
+            )
+        )
+
+        try model.load()
+
+        #expect(model.blockingIssue?.contains("未命中已授权条目") == true)
+    }
+
+    @Test
+    func loadExposesRuntimeDetectionValues() throws {
+        let snapshot = PermissionSnapshot(
+            accessibility: .authorized,
+            inputMonitoring: .authorized,
+            accessibilityTrusted: true,
+            inputMonitoringTrusted: true,
+            executablePath: "/Applications/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp",
+            bundleIdentifier: "com.gtdel.VoiceSwitch.dev",
+            bundlePath: "/Applications/VoiceSwitch.app"
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: snapshot)
+        )
+
+        try model.load()
+
+        #expect(model.accessibilityTrustedValueLabel == "true")
+        #expect(model.inputMonitoringTrustedValueLabel == "true")
+        #expect(model.runtimeExecutablePath == "/Applications/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp")
+        #expect(model.runtimeBundleIdentifier == "com.gtdel.VoiceSwitch.dev")
+        #expect(model.runtimeBundlePath == "/Applications/VoiceSwitch.app")
     }
 
     @Test
@@ -229,7 +315,7 @@ struct VoiceSwitchAppModelTests {
                     InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
                 ]
             ),
-            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown))
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
         )
 
         try model.load()

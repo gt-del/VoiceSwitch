@@ -142,9 +142,15 @@ private struct PermissionsSection: View {
 
     var body: some View {
         Section("权限与系统") {
-            Text("辅助功能权限：\(model.accessibilityStatusLabel)")
-            Text("输入监听权限：\(model.inputMonitoringStatusLabel)")
+            Text("辅助功能权限：\(model.accessibilityStatusLabel) (AXIsProcessTrusted=\(model.accessibilityTrustedValueLabel))")
+            Text("输入监听权限：\(model.inputMonitoringStatusLabel) (CGPreflightListenEventAccess=\(model.inputMonitoringTrustedValueLabel))")
             Text("键盘监听：\(model.keyboardListenerStatusLabel)")
+            Text("当前运行路径：\(model.runtimeExecutablePath)")
+                .textSelection(.enabled)
+            Text("当前 Bundle ID：\(model.runtimeBundleIdentifier)")
+                .textSelection(.enabled)
+            Text("当前 Bundle 路径：\(model.runtimeBundlePath)")
+                .textSelection(.enabled)
 
             if let errorMessage = model.keyboardMonitoringErrorMessage {
                 Text(errorMessage)

@@ -20,7 +20,7 @@ struct VoiceSwitchAppModelEngineTests {
                 ]
             ),
             inputSourceSwitchingService: StubEngineInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
-            permissionProvider: EngineTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .unknown)),
+            permissionProvider: EngineTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
             engineBridge: StubEngineBridge(
                 result: EngineTransitionResult(
                     state: .voiceHeld,

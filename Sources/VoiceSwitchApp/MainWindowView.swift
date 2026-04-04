@@ -177,12 +177,12 @@ private struct DashboardSection: View {
                 GridRow {
                     Text("辅助功能权限")
                         .foregroundStyle(.secondary)
-                    Text(model.accessibilityStatusLabel)
+                    Text("\(model.accessibilityStatusLabel) (AXIsProcessTrusted=\(model.accessibilityTrustedValueLabel))")
                 }
                 GridRow {
                     Text("输入监听权限")
                         .foregroundStyle(.secondary)
-                    Text(model.inputMonitoringStatusLabel)
+                    Text("\(model.inputMonitoringStatusLabel) (CGPreflightListenEventAccess=\(model.inputMonitoringTrustedValueLabel))")
                 }
                 GridRow {
                     Text("键盘监听")
@@ -203,6 +203,24 @@ private struct DashboardSection: View {
                     Text("最近原始事件")
                         .foregroundStyle(.secondary)
                     Text(model.lastRawKeyboardEventSummary ?? "none")
+                }
+                GridRow {
+                    Text("当前运行路径")
+                        .foregroundStyle(.secondary)
+                    Text(model.runtimeExecutablePath)
+                        .textSelection(.enabled)
+                }
+                GridRow {
+                    Text("当前 Bundle ID")
+                        .foregroundStyle(.secondary)
+                    Text(model.runtimeBundleIdentifier)
+                        .textSelection(.enabled)
+                }
+                GridRow {
+                    Text("当前 Bundle 路径")
+                        .foregroundStyle(.secondary)
+                    Text(model.runtimeBundlePath)
+                        .textSelection(.enabled)
                 }
             }
         }
