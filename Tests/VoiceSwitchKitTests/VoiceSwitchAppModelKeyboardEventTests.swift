@@ -199,6 +199,59 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     }
 
     @Test
+    func repeatedAutomationRefreshDoesNotDuplicateAutomationStateLogs() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        let initialAutomationStateLogs = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        model.refreshAutomationStateForTesting()
+        model.refreshAutomationStateForTesting()
+
+        let finalAutomationStateLogs = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+        #expect(finalAutomationStateLogs == initialAutomationStateLogs)
+        #expect(service.startCallCount == 1)
+    }
+
+    @Test
+    func repeatedSetEnabledCallsDoNotAddDuplicateAutomationLogs() throws {
+        let service = StubKeyboardEventService()
+        let model = VoiceSwitchAppModel(
+            settingsStore: KeyboardTestSettingsStore(initial: .configured),
+            inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
+            inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
+            permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: StubKeyboardEngineBridge(result: .idlePrimaryResult),
+            keyboardEventService: service
+        )
+
+        try model.load()
+        model.setEnabled(false)
+        let afterFirstDisable = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        model.setEnabled(false)
+        let afterSecondDisable = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        #expect(afterSecondDisable == afterFirstDisable)
+
+        model.setEnabled(true)
+        let afterFirstEnable = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        model.setEnabled(true)
+        let afterSecondEnable = model.logEntries.filter { $0.contains("trigger=automation_state") }.count
+
+        #expect(afterSecondEnable == afterFirstEnable)
+    }
+
+    @Test
     func retryKeyboardMonitoringWithoutInputMonitoringPermissionKeepsListenerStopped() throws {
         let service = StubKeyboardEventService()
         let permissions = MutableKeyboardPermissionProvider(
@@ -388,7 +441,7 @@ private final class KeyboardTestSettingsStore: SettingsStoring, @unchecked Senda
         initial
     }
 
-    func save(_ settings: VoiceSwitchSettings) {}
+    func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>?) throws {}
 }
 
 private struct KeyboardTestInputSourceProvider: InputSourceProviding, Sendable {

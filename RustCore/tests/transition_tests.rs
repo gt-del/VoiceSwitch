@@ -6,6 +6,91 @@ use voiceswitch_core::state::EngineState;
 use voiceswitch_core::timer::EngineTimerKind;
 
 #[test]
+fn primary_transition_matrix_remains_stable() {
+    let configuration = EngineConfiguration::default();
+    let cases = [
+        (
+            EngineState::IdlePrimary,
+            InputBehavior::OptionPressed,
+            EngineState::VoiceHeld,
+            EngineAction::SwitchToVoice,
+            "pressed_option_switch_to_voice",
+        ),
+        (
+            EngineState::VoiceHeld,
+            InputBehavior::OptionReleased,
+            EngineState::IdlePrimary,
+            EngineAction::SwitchToPrimary,
+            "released_option_switch_to_primary",
+        ),
+        (
+            EngineState::IdlePrimary,
+            InputBehavior::ManualSwitchDetected,
+            EngineState::Cooldown,
+            EngineAction::EnterCooldown,
+            "entered_cooldown_after_manual_switch",
+        ),
+        (
+            EngineState::Cooldown,
+            InputBehavior::CooldownExpired,
+            EngineState::IdlePrimary,
+            EngineAction::NoOp,
+            "cooldown_expired",
+        ),
+    ];
+
+    for (source_state, event, target_state, action, reason) in cases {
+        let result = transition(source_state, event, &configuration);
+        assert_eq!(result.state, target_state);
+        assert_eq!(result.action, action);
+        assert_eq!(result.diagnostic.source_state, source_state);
+        assert_eq!(result.diagnostic.target_state, target_state);
+        assert_eq!(result.diagnostic.reason, reason);
+    }
+}
+
+#[test]
+fn option_hold_manual_switch_and_cooldown_sequence_stays_stable() {
+    let configuration = EngineConfiguration::default();
+
+    let pressed = transition(
+        EngineState::IdlePrimary,
+        InputBehavior::OptionPressed,
+        &configuration,
+    );
+    assert_eq!(pressed.state, EngineState::VoiceHeld);
+    assert_eq!(pressed.action, EngineAction::SwitchToVoice);
+
+    let manual = transition(
+        pressed.state,
+        InputBehavior::ManualSwitchDetected,
+        &configuration,
+    );
+    assert_eq!(manual.state, EngineState::Cooldown);
+    assert_eq!(manual.action, EngineAction::EnterCooldown);
+
+    let expired = transition(
+        manual.state,
+        InputBehavior::CooldownExpired,
+        &configuration,
+    );
+    assert_eq!(expired.state, EngineState::IdlePrimary);
+    assert_eq!(expired.action, EngineAction::NoOp);
+
+    let released_after_cooldown = transition(
+        expired.state,
+        InputBehavior::OptionReleased,
+        &configuration,
+    );
+    assert_eq!(released_after_cooldown.state, EngineState::IdlePrimary);
+    assert_eq!(released_after_cooldown.action, EngineAction::NoOp);
+    assert_eq!(
+        released_after_cooldown.diagnostic.reason,
+        "ignored_event_in_current_state"
+    );
+}
+
+#[test]
 fn option_press_moves_idle_primary_to_voice_held_and_switches_to_voice() {
     let result = transition(
         EngineState::IdlePrimary,

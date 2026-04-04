@@ -1,5 +1,28 @@
 import Foundation
 
+public enum VoiceSwitchSettingsValidationError: LocalizedError, Equatable, Sendable {
+    case primaryInputSourceMissing
+    case voiceInputSourceMissing
+    case duplicateInputSources
+    case primaryInputSourceUnavailable(String)
+    case voiceInputSourceUnavailable(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .primaryInputSourceMissing:
+            return "默认输入法不能为空。"
+        case .voiceInputSourceMissing:
+            return "语音输入法不能为空。"
+        case .duplicateInputSources:
+            return "默认输入法和语音输入法不能相同。"
+        case let .primaryInputSourceUnavailable(inputSourceID):
+            return "默认输入法不在当前可选列表中：\(inputSourceID)"
+        case let .voiceInputSourceUnavailable(inputSourceID):
+            return "语音输入法不在当前可选列表中：\(inputSourceID)"
+        }
+    }
+}
+
 public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendable {
     private enum Keys {
         static let primaryInputSourceID = "voiceSwitch.primaryInputSourceID"
@@ -51,7 +74,12 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         )
     }
 
-    public func save(_ settings: VoiceSwitchSettings) {
+    public func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>? = nil) throws {
+        try validate(settings: settings, availableInputSourceIDs: availableInputSourceIDs)
+        persistValidatedSettings(settings)
+    }
+
+    private func persistValidatedSettings(_ settings: VoiceSwitchSettings) {
         userDefaults.set(settings.primaryInputSourceID, forKey: Keys.primaryInputSourceID)
         userDefaults.set(settings.voiceInputSourceID, forKey: Keys.voiceInputSourceID)
         userDefaults.set(settings.isEnabled, forKey: Keys.isEnabled)
@@ -60,6 +88,29 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
         userDefaults.set(settings.releaseReturnDelay, forKey: Keys.releaseReturnDelay)
         userDefaults.set(settings.cooldownDuration, forKey: Keys.cooldownDuration)
         purgeLegacyKeys()
+    }
+
+    public func validate(
+        settings: VoiceSwitchSettings,
+        availableInputSourceIDs: Set<String>? = nil
+    ) throws {
+        guard let primaryInputSourceID = settings.primaryInputSourceID, !primaryInputSourceID.isEmpty else {
+            throw VoiceSwitchSettingsValidationError.primaryInputSourceMissing
+        }
+        guard let voiceInputSourceID = settings.voiceInputSourceID, !voiceInputSourceID.isEmpty else {
+            throw VoiceSwitchSettingsValidationError.voiceInputSourceMissing
+        }
+        guard primaryInputSourceID != voiceInputSourceID else {
+            throw VoiceSwitchSettingsValidationError.duplicateInputSources
+        }
+        if let availableInputSourceIDs {
+            guard availableInputSourceIDs.contains(primaryInputSourceID) else {
+                throw VoiceSwitchSettingsValidationError.primaryInputSourceUnavailable(primaryInputSourceID)
+            }
+            guard availableInputSourceIDs.contains(voiceInputSourceID) else {
+                throw VoiceSwitchSettingsValidationError.voiceInputSourceUnavailable(voiceInputSourceID)
+            }
+        }
     }
 
     private func loadDelay(primaryKey: String, legacyKey: String, defaultValue: TimeInterval) -> TimeInterval {
@@ -120,7 +171,9 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
             )
         )
 
-        save(migratedSettings)
+        if (try? validate(settings: migratedSettings)) != nil {
+            persistValidatedSettings(migratedSettings)
+        }
         removeLegacyDomains()
     }
 

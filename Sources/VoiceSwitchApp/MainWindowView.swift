@@ -240,7 +240,7 @@ private struct DashboardSection: View {
                     GridRow {
                         Text("当前运行路径")
                             .foregroundStyle(.secondary)
-                        Text(model.runtimeExecutablePath)
+                        Text(model.maskedRuntimeExecutablePath)
                             .textSelection(.enabled)
                     }
                     GridRow {
@@ -252,7 +252,7 @@ private struct DashboardSection: View {
                     GridRow {
                         Text("当前 Bundle 路径")
                             .foregroundStyle(.secondary)
-                        Text(model.runtimeBundlePath)
+                        Text(model.maskedRuntimeBundlePath)
                             .textSelection(.enabled)
                     }
                 }

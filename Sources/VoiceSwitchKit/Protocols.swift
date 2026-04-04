@@ -2,7 +2,13 @@ import Foundation
 
 public protocol SettingsStoring: Sendable {
     func load() -> VoiceSwitchSettings
-    func save(_ settings: VoiceSwitchSettings)
+    func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>?) throws
+}
+
+public extension SettingsStoring {
+    func save(_ settings: VoiceSwitchSettings) throws {
+        try save(settings, availableInputSourceIDs: nil)
+    }
 }
 
 public protocol InputSourceProviding: Sendable {

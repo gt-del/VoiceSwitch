@@ -171,11 +171,11 @@ private struct PermissionsSection: View {
             Text("运行对象匹配：\(model.runtimeIdentityStatusLabel)")
             Text(model.runtimeIdentityGuidance)
                 .foregroundStyle(.secondary)
-            Text("当前运行路径：\(model.runtimeExecutablePath)")
+            Text("当前运行路径：\(model.maskedRuntimeExecutablePath)")
                 .textSelection(.enabled)
             Text("当前 Bundle ID：\(model.runtimeBundleIdentifier)")
                 .textSelection(.enabled)
-            Text("当前 Bundle 路径：\(model.runtimeBundlePath)")
+            Text("当前 Bundle 路径：\(model.maskedRuntimeBundlePath)")
                 .textSelection(.enabled)
 
             if let errorMessage = model.keyboardMonitoringErrorMessage {

@@ -241,6 +241,9 @@ public final class VoiceSwitchAppModel {
     public var runtimeExecutablePath: String {
         permissionSnapshot.executablePath
     }
+    public var maskedRuntimeExecutablePath: String {
+        maskPath(permissionSnapshot.executablePath)
+    }
 
     public var runtimeBundleIdentifier: String {
         permissionSnapshot.bundleIdentifier ?? "无"
@@ -248,6 +251,9 @@ public final class VoiceSwitchAppModel {
 
     public var runtimeBundlePath: String {
         permissionSnapshot.bundlePath ?? "无"
+    }
+    public var maskedRuntimeBundlePath: String {
+        maskPath(permissionSnapshot.bundlePath)
     }
     public func filteredLogEntries(_ filter: AppLogFilter) -> [AppLogEntry] {
         switch filter {
@@ -258,6 +264,17 @@ public final class VoiceSwitchAppModel {
         case .diagnostic:
             return allLogEntries.filter { $0.level == .diagnostic }
         }
+    }
+    public func exportLogs(to url: URL) throws {
+        try makeLogExportReport().write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    func refreshAutomationStateForTesting(forceRestart: Bool = false) {
+        updateAutomationState(forceRestart: forceRestart)
+    }
+
+    func appendLogForTesting(level: AppLogLevel, message: String) {
+        appendLog(level, message)
     }
 
     private let settingsStore: SettingsStoring
@@ -1138,6 +1155,7 @@ public final class VoiceSwitchAppModel {
                 message: message
             )
         )
+        trimLogBuffer(for: level)
     }
 
     private func scheduleAutoSave() {
@@ -1160,7 +1178,19 @@ public final class VoiceSwitchAppModel {
         pendingSettingsSaveTask?.cancel()
         pendingSettingsSaveTask = nil
 
-        settingsStore.save(makeSettings())
+        do {
+            try settingsStore.save(
+                makeSettings(),
+                availableInputSourceIDs: availableInputSources.isEmpty
+                    ? nil
+                    : Set(availableInputSources.map(\.id))
+            )
+        } catch {
+            settingsSaveStatusMessage = error.localizedDescription
+            appendLog(.user, "设置保存失败：\(error.localizedDescription)")
+            appendLog(.diagnostic, "trigger=settings_save reason=validation_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(error.localizedDescription)")
+            return
+        }
         applyLaunchAtLoginSetting()
         settingsSaveStatusMessage = immediate ? "配置已保存。" : "已自动保存。"
     }
@@ -1181,5 +1211,68 @@ public final class VoiceSwitchAppModel {
                 "trigger=launch_at_login reason=apply_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) requested=\(launchAtLoginEnabled) result=failed error=\(error.localizedDescription)"
             )
         }
+    }
+
+    private func trimLogBuffer(for level: AppLogLevel) {
+        let limit = switch level {
+        case .user:
+            200
+        case .diagnostic:
+            1000
+        }
+
+        while allLogEntries.filter({ $0.level == level }).count > limit {
+            guard let index = allLogEntries.firstIndex(where: { $0.level == level }) else {
+                return
+            }
+            allLogEntries.remove(at: index)
+        }
+    }
+
+    private func makeLogExportReport() -> String {
+        let formatter = ISO8601DateFormatter()
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+
+        let header = [
+            "# VoiceSwitch Log Export",
+            "generated_at=\(formatter.string(from: nowProvider()))",
+            "version=\(version)",
+            "build=\(build)",
+            "status=\(statusSummary)",
+            "permissions=\(permissionsSummary)",
+            "listener=\(keyboardListenerStatusLabel)",
+            "runtime_executable_path=\(runtimeExecutablePath)",
+            "bundle_identifier=\(runtimeBundleIdentifier)",
+            "bundle_path=\(runtimeBundlePath)",
+            ""
+        ]
+
+        let entries = allLogEntries.map {
+            "[\($0.level.rawValue)] \(formatter.string(from: $0.timestamp)) \($0.message)"
+        }
+
+        return (header + entries).joined(separator: "\n")
+    }
+
+    private func maskPath(_ path: String?) -> String {
+        guard let path, !path.isEmpty else {
+            return "无"
+        }
+
+        var normalized = path
+        let homeDirectory = NSHomeDirectory()
+        if normalized.hasPrefix(homeDirectory) {
+            normalized = "~" + normalized.dropFirst(homeDirectory.count)
+        }
+
+        let components = normalized.split(separator: "/")
+        guard components.count > 4 else {
+            return normalized
+        }
+
+        let prefix = components.prefix(2).joined(separator: "/")
+        let suffix = components.suffix(2).joined(separator: "/")
+        return "\(prefix)/.../\(suffix)"
     }
 }

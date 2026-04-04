@@ -53,11 +53,17 @@ struct VoiceSwitchAppModelTests {
         let launchAtLoginController = StubLaunchAtLoginController(isEnabled: false)
         let model = VoiceSwitchAppModel(
             settingsStore: store,
-            inputSourceProvider: StubInputSourceProvider(sources: []),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
             permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
             launchAtLoginController: launchAtLoginController
         )
 
+        try? model.load()
         model.selectedPrimaryInputSourceID = "com.apple.keylayout.ABC"
         model.selectedVoiceInputSourceID = "com.example.voice"
         model.isEnabled = false
@@ -82,7 +88,7 @@ struct VoiceSwitchAppModelTests {
     }
 
     @Test
-    func saveSelectionsLogsLaunchAtLoginFailure() {
+    func saveSelectionsLogsLaunchAtLoginFailure() throws {
         let store = InMemorySettingsStore(initial: VoiceSwitchSettings())
         let launchAtLoginController = StubLaunchAtLoginController(
             isEnabled: false,
@@ -90,11 +96,19 @@ struct VoiceSwitchAppModelTests {
         )
         let model = VoiceSwitchAppModel(
             settingsStore: store,
-            inputSourceProvider: StubInputSourceProvider(sources: []),
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
             permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .unknown, inputMonitoring: .unknown)),
             launchAtLoginController: launchAtLoginController
         )
 
+        try model.load()
+        model.selectedPrimaryInputSourceID = "com.apple.keylayout.ABC"
+        model.selectedVoiceInputSourceID = "com.example.voice"
         model.launchAtLoginEnabled = true
         model.saveSelections()
 
@@ -396,6 +410,98 @@ struct VoiceSwitchAppModelTests {
         #expect(store.saved?.isEnabled == false)
         #expect(model.settingsSaveStatusMessage == "已自动保存。")
     }
+
+    @Test
+    func invalidConfigurationDoesNotPersistIntoStore() throws {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
+        let model = VoiceSwitchAppModel(
+            settingsStore: store,
+            inputSourceProvider: StubInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "primary.id", displayName: "Primary", isSelected: true),
+                    InputSourceDescriptor(id: "voice.id", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
+        )
+
+        try model.load()
+        model.updatePrimaryInputSourceID("primary.id")
+        model.updateVoiceInputSourceID("primary.id")
+        model.saveSelections()
+
+        #expect(model.settingsSaveStatusMessage == "默认输入法和语音输入法不能相同。")
+        #expect(store.load().primaryInputSourceID == nil)
+        #expect(store.load().voiceInputSourceID == nil)
+    }
+
+    @Test
+    func diagnosticLogBufferUsesRingCapacity() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
+        )
+
+        for index in 0..<1005 {
+            model.appendLogForTesting(level: .diagnostic, message: "diagnostic-\(index)")
+        }
+
+        let diagnosticEntries = model.filteredLogEntries(.diagnostic)
+        #expect(diagnosticEntries.count == 1000)
+        #expect(diagnosticEntries.first?.message == "diagnostic-5")
+        #expect(diagnosticEntries.last?.message == "diagnostic-1004")
+    }
+
+    @Test
+    func userLogBufferUsesRingCapacity() throws {
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized))
+        )
+
+        for index in 0..<205 {
+            model.appendLogForTesting(level: .user, message: "user-\(index)")
+        }
+
+        let userEntries = model.filteredLogEntries(.user)
+        #expect(userEntries.count == 200)
+        #expect(userEntries.first?.message == "user-5")
+        #expect(userEntries.last?.message == "user-204")
+    }
+
+    @Test
+    func exportLogsIncludesFullRuntimeIdentityAndLevels() throws {
+        let snapshot = PermissionSnapshot(
+            accessibility: .authorized,
+            inputMonitoring: .authorized,
+            executablePath: "/Applications/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp",
+            bundleIdentifier: "com.gtdel.VoiceSwitch.dev",
+            bundlePath: "/Applications/VoiceSwitch.app"
+        )
+        let model = VoiceSwitchAppModel(
+            settingsStore: InMemorySettingsStore(initial: VoiceSwitchSettings()),
+            inputSourceProvider: StubInputSourceProvider(sources: []),
+            permissionProvider: StubPermissionProvider(current: snapshot)
+        )
+        try model.load()
+        model.appendLogForTesting(level: .user, message: "user-entry")
+        model.appendLogForTesting(level: .diagnostic, message: "diagnostic-entry")
+
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(#function).txt")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try model.exportLogs(to: url)
+        let contents = try String(contentsOf: url, encoding: .utf8)
+
+        #expect(contents.contains("runtime_executable_path=/Applications/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp"))
+        #expect(contents.contains("bundle_identifier=com.gtdel.VoiceSwitch.dev"))
+        #expect(contents.contains("[user]"))
+        #expect(contents.contains("[diagnostic]"))
+    }
 }
 
 private final class InMemorySettingsStore: SettingsStoring, @unchecked Sendable {
@@ -410,7 +516,7 @@ private final class InMemorySettingsStore: SettingsStoring, @unchecked Sendable 
         saved ?? initial
     }
 
-    func save(_ settings: VoiceSwitchSettings) {
+    func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>?) throws {
         saved = settings
     }
 }

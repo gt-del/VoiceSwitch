@@ -1,9 +1,11 @@
+import AppKit
 import SwiftUI
 import VoiceSwitchKit
 
 struct LogPanelView: View {
     @Bindable var model: VoiceSwitchAppModel
     @State private var selectedFilter: AppLogFilter = .user
+    @State private var exportStatusMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -23,6 +25,21 @@ struct LogPanelView: View {
                 Text("诊断日志").tag(AppLogFilter.diagnostic)
             }
             .pickerStyle(.segmented)
+
+            HStack {
+                Button("导出日志") {
+                    exportLogs()
+                }
+                .buttonStyle(.bordered)
+
+                if let exportStatusMessage {
+                    Text(exportStatusMessage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
                 Button("发送 Option 按下") {
@@ -55,5 +72,22 @@ struct LogPanelView: View {
         }
         .padding()
         .frame(minWidth: 640, minHeight: 360)
+    }
+
+    private func exportLogs() {
+        let savePanel = NSSavePanel()
+        savePanel.nameFieldStringValue = "VoiceSwitch-logs.txt"
+        savePanel.allowedContentTypes = [.plainText]
+
+        guard savePanel.runModal() == .OK, let url = savePanel.url else {
+            return
+        }
+
+        do {
+            try model.exportLogs(to: url)
+            exportStatusMessage = "日志已导出到 \(url.lastPathComponent)。"
+        } catch {
+            exportStatusMessage = "日志导出失败：\(error.localizedDescription)"
+        }
     }
 }
