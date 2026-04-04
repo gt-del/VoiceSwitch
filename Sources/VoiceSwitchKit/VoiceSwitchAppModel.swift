@@ -18,6 +18,7 @@ public final class VoiceSwitchAppModel {
     public private(set) var keyboardMonitoringErrorMessage: String?
     public private(set) var launchAtLoginErrorMessage: String?
     public private(set) var settingsSaveStatusMessage: String?
+    public private(set) var allLogEntries: [AppLogEntry]
     public var selectedPrimaryInputSourceID: String?
     public var selectedVoiceInputSourceID: String?
     public var isEnabled: Bool
@@ -25,50 +26,65 @@ public final class VoiceSwitchAppModel {
     public var voiceActivationDelay: TimeInterval
     public var releaseReturnDelay: TimeInterval
     public var cooldownDuration: TimeInterval
-    public var logEntries: [String]
-
-    public var configurationIssues: [String] {
-        var issues: [String] = []
-
-        if let unavailablePrimaryIssue {
-            issues.append(unavailablePrimaryIssue)
-        }
-        if let unavailableVoiceIssue {
-            issues.append(unavailableVoiceIssue)
-        }
-        if selectedPrimaryInputSourceID == nil {
-            issues.append("未配置默认输入法。")
-        }
-        if selectedVoiceInputSourceID == nil {
-            issues.append("未配置语音输入法。")
-        }
-        if
-            let primaryID = selectedPrimaryInputSourceID,
-            let voiceID = selectedVoiceInputSourceID,
-            primaryID == voiceID
-        {
-            issues.append("默认输入法和语音输入法不能相同。")
-        }
-
-        return issues
+    public var logEntries: [String] {
+        allLogEntries.map(\.message)
     }
-
-    public var canRun: Bool {
-        blockingIssue == nil
-    }
-
     public var blockingIssue: String? {
-        if let accessibilityBlockingIssue {
-            return accessibilityBlockingIssue
+        blockingReason?.message
+    }
+    public var blockingReason: AppBlockingReason? {
+        if let permissionBlockingReason {
+            return permissionBlockingReason
         }
-        if let inputMonitoringBlockingIssue {
-            return inputMonitoringBlockingIssue
+        if let configurationBlockingReason {
+            return configurationBlockingReason
         }
-        if selectedPrimaryInputSourceID == nil {
-            return "未配置默认输入法。"
+        if keyboardEventService != nil && isEnabled && eventTapStatus != .running {
+            return AppBlockingReason(
+                kind: .keyboardMonitoringStopped,
+                title: "监听未运行",
+                message: "权限和输入法配置都正常，但键盘监听当前没有运行。",
+                nextStep: "请返回应用窗口等待自动恢复；若仍未恢复，再点击“重试监听”。"
+            )
         }
-        if selectedVoiceInputSourceID == nil {
-            return "未配置语音输入法。"
+
+        return nil
+    }
+    public var runtimeIdentityStatus: RuntimeIdentityStatus {
+        if permissionSnapshot.accessibility == .authorized && permissionSnapshot.inputMonitoring == .authorized {
+            return .matched
+        }
+        if permissionSnapshot.runtimeIdentityLikelyMismatch {
+            return .mismatched
+        }
+        return .unknown
+    }
+    public var runtimeIdentityStatusLabel: String {
+        switch runtimeIdentityStatus {
+        case .matched:
+            return "匹配"
+        case .mismatched:
+            return "疑似不匹配"
+        case .unknown:
+            return "未知"
+        }
+    }
+    public var runtimeIdentityGuidance: String {
+        switch runtimeIdentityStatus {
+        case .matched:
+            return "当前运行目标与已授权对象一致。"
+        case .mismatched:
+            return "系统里已勾选的对象可能不是当前这个进程，请改用固定 .app 产物并重新授权当前运行路径。"
+        case .unknown:
+            return "当前无法确认授权对象是否命中了这个运行目标。"
+        }
+    }
+    public var primaryInputSourceIssue: String? {
+        if let unavailablePrimaryIssue {
+            return unavailablePrimaryIssue
+        }
+        guard selectedPrimaryInputSourceID != nil else {
+            return "请选择默认输入法。"
         }
         if
             let primaryID = selectedPrimaryInputSourceID,
@@ -77,17 +93,39 @@ public final class VoiceSwitchAppModel {
         {
             return "默认输入法和语音输入法不能相同。"
         }
-        if let unavailablePrimaryIssue {
-            return unavailablePrimaryIssue
-        }
+        return nil
+    }
+    public var voiceInputSourceIssue: String? {
         if let unavailableVoiceIssue {
             return unavailableVoiceIssue
         }
-        if keyboardEventService != nil && isEnabled && eventTapStatus != .running {
-            return "键盘监听未运行。请点击“重试监听”恢复自动切换。"
+        guard selectedVoiceInputSourceID != nil else {
+            return "请选择语音输入法。"
         }
-
+        if
+            let primaryID = selectedPrimaryInputSourceID,
+            let voiceID = selectedVoiceInputSourceID,
+            primaryID == voiceID
+        {
+            return "默认输入法和语音输入法不能相同。"
+        }
         return nil
+    }
+    public var settingsAutosaveSummary: String {
+        settingsSaveStatusMessage ?? "设置会自动保存并自动应用。"
+    }
+
+    public var configurationIssues: [String] {
+        [primaryInputSourceIssue, voiceInputSourceIssue]
+            .compactMap { $0 }
+            .removingDuplicates()
+    }
+
+    public var canRun: Bool {
+        blockingReason == nil
+    }
+    public var shouldHighlightRetryMonitoring: Bool {
+        isEnabled && blockingReason != nil
     }
 
     public var statusSummary: String {
@@ -144,6 +182,15 @@ public final class VoiceSwitchAppModel {
             return "未运行"
         }
     }
+    public var permissionsSummary: String {
+        "辅助功能：\(accessibilityStatusLabel) | 输入监听：\(inputMonitoringStatusLabel)"
+    }
+    public var nextStepSummary: String {
+        if !isEnabled {
+            return "启用 VoiceSwitch 后才会接管 Option 键。"
+        }
+        return blockingReason?.nextStep ?? "当前配置可运行，可以直接按住 Option 切换语音输入法。"
+    }
 
     public var lastActionSummary: String {
         guard let lastEngineAction else {
@@ -194,6 +241,9 @@ public final class VoiceSwitchAppModel {
     public var runtimeExecutablePath: String {
         permissionSnapshot.executablePath
     }
+    public var maskedRuntimeExecutablePath: String {
+        maskPath(permissionSnapshot.executablePath)
+    }
 
     public var runtimeBundleIdentifier: String {
         permissionSnapshot.bundleIdentifier ?? "无"
@@ -201,6 +251,30 @@ public final class VoiceSwitchAppModel {
 
     public var runtimeBundlePath: String {
         permissionSnapshot.bundlePath ?? "无"
+    }
+    public var maskedRuntimeBundlePath: String {
+        maskPath(permissionSnapshot.bundlePath)
+    }
+    public func filteredLogEntries(_ filter: AppLogFilter) -> [AppLogEntry] {
+        switch filter {
+        case .all:
+            return allLogEntries
+        case .user:
+            return allLogEntries.filter { $0.level == .user }
+        case .diagnostic:
+            return allLogEntries.filter { $0.level == .diagnostic }
+        }
+    }
+    public func exportLogs(to url: URL) throws {
+        try makeLogExportReport().write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    func refreshAutomationStateForTesting(forceRestart: Bool = false) {
+        updateAutomationState(forceRestart: forceRestart)
+    }
+
+    func appendLogForTesting(level: AppLogLevel, message: String) {
+        appendLog(level, message)
     }
 
     private let settingsStore: SettingsStoring
@@ -215,6 +289,9 @@ public final class VoiceSwitchAppModel {
     private let releaseReturnScheduler: CooldownScheduling
     private let cooldownScheduler: CooldownScheduling
     private let nowProvider: @Sendable () -> Date
+    private var pendingSettingsSaveTask: Task<Void, Never>?
+    private var lastLoggedAutomationState: String?
+    private var isInputObservationActive: Bool
     private var unavailablePrimaryIssue: String?
     private var unavailableVoiceIssue: String?
 
@@ -257,6 +334,7 @@ public final class VoiceSwitchAppModel {
         self.cooldownDeadline = nil
         self.keyboardMonitoringErrorMessage = nil
         self.launchAtLoginErrorMessage = nil
+        self.allLogEntries = []
         self.selectedPrimaryInputSourceID = nil
         self.selectedVoiceInputSourceID = nil
         self.isEnabled = true
@@ -264,7 +342,7 @@ public final class VoiceSwitchAppModel {
         self.voiceActivationDelay = EngineConfiguration().voiceActivationDelay
         self.releaseReturnDelay = EngineConfiguration().releaseReturnDelay
         self.cooldownDuration = EngineConfiguration().cooldownDuration
-        self.logEntries = []
+        self.isInputObservationActive = false
         self.unavailablePrimaryIssue = nil
         self.unavailableVoiceIssue = nil
     }
@@ -277,8 +355,9 @@ public final class VoiceSwitchAppModel {
         if settings.isEnabled && permissionSnapshot.accessibility != .authorized {
             permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
             if permissionSnapshot.accessibility != .authorized {
-                keyboardMonitoringErrorMessage = accessibilityBlockingIssue
-                logEntries.append("listener=keyboard_monitoring authorization=requested result=denied")
+                keyboardMonitoringErrorMessage = permissionBlockingReason?.message
+                appendLog(.user, "辅助功能权限未就绪，VoiceSwitch 当前无法监听 Option 键。")
+                appendLog(.diagnostic, "listener=keyboard_monitoring authorization=requested result=denied")
             }
         } else {
             keyboardMonitoringErrorMessage = nil
@@ -291,7 +370,8 @@ public final class VoiceSwitchAppModel {
         if let primaryID = settings.primaryInputSourceID, !availableIDs.contains(primaryID) {
             selectedPrimaryInputSourceID = nil
             unavailablePrimaryIssue = "默认输入法已失效，请重新选择可用输入法。"
-            logEntries.append("Primary IME configuration became unavailable: \(primaryID)")
+            appendLog(.user, "默认输入法已失效，请重新选择。")
+            appendLog(.diagnostic, "Primary IME configuration became unavailable: \(primaryID)")
         } else {
             selectedPrimaryInputSourceID = settings.primaryInputSourceID
         }
@@ -299,7 +379,8 @@ public final class VoiceSwitchAppModel {
         if let voiceID = settings.voiceInputSourceID, !availableIDs.contains(voiceID) {
             selectedVoiceInputSourceID = nil
             unavailableVoiceIssue = "语音输入法已失效，请重新选择可用输入法。"
-            logEntries.append("Voice IME configuration became unavailable: \(voiceID)")
+            appendLog(.user, "语音输入法已失效，请重新选择。")
+            appendLog(.diagnostic, "Voice IME configuration became unavailable: \(voiceID)")
         } else {
             selectedVoiceInputSourceID = settings.voiceInputSourceID
         }
@@ -308,7 +389,7 @@ public final class VoiceSwitchAppModel {
         let launchAtLoginStatus = launchAtLoginController.isEnabled()
         launchAtLoginEnabled = launchAtLoginStatus
         if settings.launchAtLoginEnabled != launchAtLoginStatus {
-            logEntries.append(
+            appendLog(.diagnostic,
                 "trigger=launch_at_login reason=status_mismatch source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) requested=\(settings.launchAtLoginEnabled) actual=\(launchAtLoginStatus)"
             )
         }
@@ -321,25 +402,7 @@ public final class VoiceSwitchAppModel {
     }
 
     public func saveSelections() {
-        settingsStore.save(makeSettings())
-        updateAutomationState()
-
-        do {
-            try launchAtLoginController.setEnabled(launchAtLoginEnabled)
-            launchAtLoginErrorMessage = nil
-            settingsSaveStatusMessage = "配置已保存。"
-            logEntries.append(
-                "trigger=launch_at_login reason=updated source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=success"
-            )
-        } catch {
-            launchAtLoginErrorMessage = error.localizedDescription
-            settingsSaveStatusMessage = "配置已保存，但登录启动更新失败。"
-            logEntries.append(
-                "trigger=launch_at_login reason=\(error.localizedDescription) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(launchAtLoginEnabled) result=failed"
-            )
-        }
-
-        logEntries.append("Saved settings at \(Date.now.formatted(date: .omitted, time: .standard))")
+        persistSettings(immediate: true)
     }
 
     public func updatePrimaryInputSourceID(_ inputSourceID: String?) {
@@ -348,6 +411,8 @@ public final class VoiceSwitchAppModel {
         if inputSourceID != nil {
             unavailablePrimaryIssue = nil
         }
+        updateAutomationState()
+        scheduleAutoSave()
     }
 
     public func updateVoiceInputSourceID(_ inputSourceID: String?) {
@@ -356,6 +421,8 @@ public final class VoiceSwitchAppModel {
         if inputSourceID != nil {
             unavailableVoiceIssue = nil
         }
+        updateAutomationState()
+        scheduleAutoSave()
     }
 
     public func setEnabled(_ enabled: Bool) {
@@ -376,28 +443,71 @@ public final class VoiceSwitchAppModel {
             releaseReturnScheduler.cancel()
             cooldownScheduler.cancel()
         }
-
-        settingsStore.save(makeSettings())
         updateAutomationState()
+        scheduleAutoSave()
+        appendLog(.user, enabled ? "VoiceSwitch 已启用。" : "VoiceSwitch 已停用。")
     }
 
     public func markSettingsEdited() {
         settingsSaveStatusMessage = nil
     }
 
+    public func updateLaunchAtLoginEnabled(_ enabled: Bool) {
+        guard launchAtLoginEnabled != enabled else {
+            return
+        }
+        launchAtLoginEnabled = enabled
+        settingsSaveStatusMessage = nil
+        scheduleAutoSave()
+    }
+
+    public func updateVoiceActivationDelay(_ delay: TimeInterval) {
+        guard voiceActivationDelay != delay else {
+            return
+        }
+        voiceActivationDelay = delay
+        settingsSaveStatusMessage = nil
+        scheduleAutoSave()
+    }
+
+    public func updateReleaseReturnDelay(_ delay: TimeInterval) {
+        guard releaseReturnDelay != delay else {
+            return
+        }
+        releaseReturnDelay = delay
+        settingsSaveStatusMessage = nil
+        scheduleAutoSave()
+    }
+
+    public func updateCooldownDuration(_ duration: TimeInterval) {
+        guard cooldownDuration != duration else {
+            return
+        }
+        cooldownDuration = duration
+        settingsSaveStatusMessage = nil
+        scheduleAutoSave()
+    }
+
     public func retryKeyboardMonitoring() {
+        if shouldRunAutomation, eventTapStatus == .running {
+            appendLog(.diagnostic, "listener=keyboard_monitoring retryResult=skipped reason=already_running")
+            return
+        }
+
         permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
         guard permissionSnapshot.accessibility == .authorized else {
-            keyboardMonitoringErrorMessage = accessibilityBlockingIssue
-            logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=accessibility_denied")
+            keyboardMonitoringErrorMessage = permissionBlockingReason?.message
+            appendLog(.user, "辅助功能权限仍未恢复。")
+            appendLog(.diagnostic, "listener=keyboard_monitoring retryResult=skipped reason=accessibility_denied")
             eventTapStatus = .stopped
             return
         }
 
         permissionSnapshot = permissionProvider.requestInputMonitoringAuthorization()
         guard permissionSnapshot.inputMonitoring == .authorized else {
-            keyboardMonitoringErrorMessage = inputMonitoringBlockingIssue
-            logEntries.append("listener=keyboard_monitoring retryResult=skipped reason=input_monitoring_denied")
+            keyboardMonitoringErrorMessage = permissionBlockingReason?.message
+            appendLog(.user, "输入监听权限仍未恢复。")
+            appendLog(.diagnostic, "listener=keyboard_monitoring retryResult=skipped reason=input_monitoring_denied")
             eventTapStatus = .stopped
             return
         }
@@ -405,7 +515,7 @@ public final class VoiceSwitchAppModel {
         updateAutomationState(forceRestart: true)
         if eventTapStatus == .running {
             keyboardMonitoringErrorMessage = nil
-            logEntries.append("listener=keyboard_monitoring retryResult=started state=\(eventTapStatus.rawValue)")
+            appendLog(.diagnostic, "listener=keyboard_monitoring retryResult=started state=\(eventTapStatus.rawValue)")
         }
     }
 
@@ -419,16 +529,17 @@ public final class VoiceSwitchAppModel {
             if !previousShouldRun || previousEventTapStatus != .running {
                 updateAutomationState(forceRestart: true)
                 keyboardMonitoringErrorMessage = nil
-                logEntries.append("trigger=app_activation reason=permissions_recovered source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) event_tap=\(eventTapStatus.rawValue)")
+                appendLog(.user, "权限已恢复，VoiceSwitch 已自动恢复监听。")
+                appendLog(.diagnostic, "trigger=app_activation reason=permissions_recovered source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) event_tap=\(eventTapStatus.rawValue)")
             }
             return
         }
 
         updateAutomationState()
-        if let blockingIssue {
-            keyboardMonitoringErrorMessage = blockingIssue
+        if let blockingReason {
+            keyboardMonitoringErrorMessage = blockingReason.message
         }
-        logEntries.append("trigger=app_activation reason=permissions_still_blocked source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) event_tap=\(eventTapStatus.rawValue)")
+        appendLog(.diagnostic, "trigger=app_activation reason=permissions_still_blocked source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) event_tap=\(eventTapStatus.rawValue)")
     }
 
     public func sendTestEvent(_ event: InputBehavior) throws {
@@ -439,7 +550,7 @@ public final class VoiceSwitchAppModel {
         do {
             try sendTestEvent(event)
         } catch {
-            logEntries.append("Engine event=\(event.rawValue) failed error=\(String(describing: error))")
+            appendLog(.diagnostic, "Engine event=\(event.rawValue) failed error=\(String(describing: error))")
         }
     }
 
@@ -454,7 +565,7 @@ public final class VoiceSwitchAppModel {
             keyboardMonitoringErrorMessage = nil
         }
 
-        logEntries.append("Keyboard raw=\(summary.rawDescription)")
+        appendLog(.diagnostic, "Keyboard raw=\(summary.rawDescription)")
 
         guard let mappedBehavior = summary.mappedBehavior else {
             return
@@ -463,7 +574,7 @@ public final class VoiceSwitchAppModel {
         do {
             try advanceEngine(for: mappedBehavior, rawDescription: summary.rawDescription)
         } catch {
-            logEntries.append(
+            appendLog(.diagnostic,
                 "Keyboard raw=\(summary.rawDescription) event=\(mappedBehavior.rawValue) failed error=\(String(describing: error))"
             )
         }
@@ -479,7 +590,7 @@ public final class VoiceSwitchAppModel {
                 at: now
             )
 
-            logEntries.append(
+            appendLog(.diagnostic,
                 "Input source observed raw=\(rawDescription) currentInputSource=\(inputSourceID ?? "none") origin=\(origin)"
             )
 
@@ -490,7 +601,7 @@ public final class VoiceSwitchAppModel {
             do {
                 try advanceEngine(for: .manualSwitchDetected, rawDescription: rawDescription)
             } catch {
-                logEntries.append(
+                appendLog(.diagnostic,
                     "Input source observed raw=\(rawDescription) event=manualSwitchDetected failed error=\(String(describing: error))"
                 )
             }
@@ -501,14 +612,14 @@ public final class VoiceSwitchAppModel {
         guard isEnabled else {
             lastInputBehavior = event
             lastEngineAction = .noOp
-            logEntries.append("trigger=\(event.rawValue) reason=automation_disabled source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)")
+            appendLog(.diagnostic, "trigger=\(event.rawValue) reason=automation_disabled source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)")
             return
         }
 
         guard canRun else {
             lastInputBehavior = event
             lastEngineAction = .noOp
-            logEntries.append("trigger=\(event.rawValue) reason=automation_unavailable source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)")
+            appendLog(.diagnostic, "trigger=\(event.rawValue) reason=automation_unavailable source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)")
             return
         }
 
@@ -532,7 +643,7 @@ public final class VoiceSwitchAppModel {
         )
 
         if previousState == .cooldown, event != .cooldownExpired, result.action == .noOp {
-            logEntries.append(
+            appendLog(.diagnostic,
                 "trigger=\(event.rawValue) reason=cooldown_skipped_automatic_switch source_state=\(previousState.rawValue) target_state=\(result.state.rawValue) action=\(result.action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: result.action) ?? "none") cooldown_status=\(cooldownStatusLabel)"
             )
         }
@@ -540,7 +651,8 @@ public final class VoiceSwitchAppModel {
         if event == .cooldownExpired {
             isCooldownActive = false
             cooldownDeadline = nil
-            logEntries.append(
+            appendLog(.user, "冷却已结束，自动切换恢复。")
+            appendLog(.diagnostic,
                 "trigger=cooldownExpired reason=cooldown_ended source_state=cooldown target_state=\(result.state.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)"
             )
         }
@@ -582,14 +694,15 @@ public final class VoiceSwitchAppModel {
         configurationLabel: String
     ) {
         guard let targetInputSourceID else {
-            logEntries.append(
+            appendLog(.diagnostic,
                 "trigger=input_source_switch reason=\(configurationLabel)_input_source_not_configured source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) switch_result=skipped"
             )
             return
         }
 
         guard availableInputSources.contains(where: { $0.id == targetInputSourceID }) else {
-            logEntries.append(
+            appendLog(.user, "目标输入法当前不可用，请重新选择。")
+            appendLog(.diagnostic,
                 "trigger=input_source_switch reason=target_input_source_unavailable source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=skipped"
             )
             return
@@ -599,14 +712,15 @@ public final class VoiceSwitchAppModel {
         do {
             currentInputSourceID = try inputSourceSwitchingService.currentSelectedInputSourceID()
         } catch {
-            logEntries.append(
+            appendLog(.user, "读取当前输入法失败，暂时无法自动切换。")
+            appendLog(.diagnostic,
                 "trigger=input_source_switch reason=\(String(describing: error)) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=unknown target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=failed"
             )
             return
         }
 
         if currentInputSourceID == targetInputSourceID {
-            logEntries.append(
+            appendLog(.diagnostic,
                 "trigger=input_source_switch reason=target_already_selected source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=skipped"
             )
             return
@@ -616,11 +730,13 @@ public final class VoiceSwitchAppModel {
             try inputSourceSwitchingService.switchToInputSource(id: targetInputSourceID)
             lastProgrammaticSwitchTargetInputSourceID = targetInputSourceID
             lastProgrammaticSwitchAt = nowProvider()
-            logEntries.append(
+            appendLog(.user, action == .switchToVoice ? "已切到语音输入法。" : "已切回默认输入法。")
+            appendLog(.diagnostic,
                 "trigger=input_source_switch reason=executed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=success"
             )
         } catch {
-            logEntries.append(
+            appendLog(.user, "输入法切换失败：\(error.localizedDescription)")
+            appendLog(.diagnostic,
                 "trigger=input_source_switch reason=\(error.localizedDescription) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceID ?? "none") target_input_source=\(targetInputSourceID) cooldown_status=\(cooldownStatusLabel) switch_result=failed"
             )
         }
@@ -664,9 +780,11 @@ public final class VoiceSwitchAppModel {
         }
 
         if wasActive {
-            logEntries.append("trigger=manualSwitchDetected reason=cooldown_reset source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=enterCooldown current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
+            appendLog(.user, "检测到手动切换输入法，冷却已重置。")
+            appendLog(.diagnostic, "trigger=manualSwitchDetected reason=cooldown_reset source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=enterCooldown current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
         } else {
-            logEntries.append("trigger=manualSwitchDetected reason=cooldown_started source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=enterCooldown current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
+            appendLog(.user, "检测到手动切换输入法，已进入冷却。")
+            appendLog(.diagnostic, "trigger=manualSwitchDetected reason=cooldown_started source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=enterCooldown current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) deadline=\(deadline.timeIntervalSince1970)")
         }
     }
 
@@ -674,7 +792,7 @@ public final class VoiceSwitchAppModel {
         do {
             try advanceEngine(for: .cooldownExpired, rawDescription: nil)
         } catch {
-            logEntries.append("trigger=cooldownExpired reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
+            appendLog(.diagnostic, "trigger=cooldownExpired reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
         }
     }
 
@@ -699,31 +817,41 @@ public final class VoiceSwitchAppModel {
     }
 
     private func updateAutomationState(forceRestart: Bool = false) {
-        if forceRestart {
-            keyboardEventService?.stop()
-            inputSourceObservationService?.stop()
-        }
-
         guard shouldRunAutomation else {
-            keyboardEventService?.stop()
-            inputSourceObservationService?.stop()
+            stopKeyboardMonitoringIfNeeded()
+            stopInputObservationIfNeeded()
             eventTapStatus = .stopped
             if !isEnabled {
                 keyboardMonitoringErrorMessage = nil
                 logAutomationStatusChange(reason: "disabled")
             } else {
+                keyboardMonitoringErrorMessage = blockingReason?.message
                 logAutomationStatusChange(reason: "stopped_due_to_blocking_issue")
             }
             return
         }
 
+        if forceRestart {
+            stopKeyboardMonitoringIfNeeded()
+            stopInputObservationIfNeeded()
+        }
+
         startKeyboardMonitoring()
         startInputObservation()
+        keyboardMonitoringErrorMessage = nil
         logAutomationStatusChange(reason: forceRestart ? "restarted" : "running")
     }
 
     private func startKeyboardMonitoring() {
-        keyboardEventService?.start { [weak self] summary in
+        guard let keyboardEventService else {
+            eventTapStatus = .running
+            return
+        }
+        guard forceStartNeeded(for: keyboardEventService) else {
+            eventTapStatus = .running
+            return
+        }
+        keyboardEventService.start { [weak self] summary in
             if Thread.isMainThread {
                 MainActor.assumeIsolated { [weak self] in
                     self?.handleKeyboardEvent(summary)
@@ -734,11 +862,18 @@ public final class VoiceSwitchAppModel {
                 }
             }
         }
-        eventTapStatus = keyboardEventService?.isRunning == true ? .running : .stopped
+        eventTapStatus = keyboardEventService.isRunning ? .running : .stopped
     }
 
     private func startInputObservation() {
-        inputSourceObservationService?.start { [weak self] observation in
+        guard let inputSourceObservationService else {
+            isInputObservationActive = false
+            return
+        }
+        guard !isInputObservationActive else {
+            return
+        }
+        inputSourceObservationService.start { [weak self] observation in
             if Thread.isMainThread {
                 MainActor.assumeIsolated { [weak self] in
                     self?.handleInputSourceObservation(observation)
@@ -749,6 +884,30 @@ public final class VoiceSwitchAppModel {
                 }
             }
         }
+        isInputObservationActive = true
+    }
+
+    private func forceStartNeeded(for service: KeyboardEventListening) -> Bool {
+        forceStartNeeded(eventTapStatus: eventTapStatus, isRunning: service.isRunning)
+    }
+
+    private func forceStartNeeded(eventTapStatus: KeyboardListenerState, isRunning: Bool) -> Bool {
+        eventTapStatus != .running || !isRunning
+    }
+
+    private func stopKeyboardMonitoringIfNeeded() {
+        guard let keyboardEventService, keyboardEventService.isRunning || eventTapStatus == .running else {
+            return
+        }
+        keyboardEventService.stop()
+    }
+
+    private func stopInputObservationIfNeeded() {
+        guard isInputObservationActive else {
+            return
+        }
+        inputSourceObservationService?.stop()
+        isInputObservationActive = false
     }
 
     private func updateTimerScheduling(
@@ -800,7 +959,7 @@ public final class VoiceSwitchAppModel {
             }
         }
 
-        logEntries.append(
+        appendLog(.diagnostic,
             "trigger=\(timerTrigger(for: timer.kind)) reason=\(timerReason(for: timer.kind)) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: action) ?? "none") cooldown_status=\(cooldownStatusLabel) timer_delay_seconds=\(timer.delaySeconds) deadline=\(deadline.timeIntervalSince1970)"
         )
     }
@@ -851,7 +1010,7 @@ public final class VoiceSwitchAppModel {
         if let rawDescription {
             entry += " raw_event=\(rawDescription)"
         }
-        logEntries.append(entry)
+        appendLog(.diagnostic, entry)
     }
 
     private func targetInputSourceID(for action: EngineAction) -> String? {
@@ -899,41 +1058,221 @@ public final class VoiceSwitchAppModel {
         }
     }
 
-    private var accessibilityBlockingIssue: String? {
-        guard permissionSnapshot.accessibility != .authorized else {
-            return nil
+    private var permissionBlockingReason: AppBlockingReason? {
+        if permissionSnapshot.runtimeIdentityLikelyMismatch {
+            return AppBlockingReason(
+                kind: .runtimeIdentityMismatch,
+                title: "授权对象不匹配",
+                message: "系统里已授权的对象可能不是当前这个运行进程，当前进程未命中已授权条目，所以 VoiceSwitch 仍然拿不到权限。",
+                nextStep: "请从固定的 .app 产物启动，并在系统设置里重新勾选当前运行路径对应的 VoiceSwitch。"
+            )
         }
 
-        if runtimeTargetMismatchLikely {
-            return "辅助功能权限可能已授予其他运行目标，但当前进程未命中已授权条目。请改用 .app 包，或在系统设置里重新勾选当前运行路径。"
+        if permissionSnapshot.accessibility != .authorized {
+            return AppBlockingReason(
+                kind: .accessibilityDenied,
+                title: "辅助功能权限未授权",
+                message: "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。",
+                nextStep: "请打开系统设置里的“辅助功能”，勾选当前运行的 VoiceSwitch。"
+            )
         }
 
-        return "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听 Option 键。"
+        if permissionSnapshot.inputMonitoring != .authorized {
+            return AppBlockingReason(
+                kind: .inputMonitoringDenied,
+                title: "输入监听权限未授权",
+                message: "系统尚未授予输入监听权限，VoiceSwitch 当前无法读取全局键盘事件。",
+                nextStep: "请打开系统设置里的“输入监听”，勾选当前运行的 VoiceSwitch。"
+            )
+        }
+
+        return nil
     }
 
-    private var inputMonitoringBlockingIssue: String? {
-        guard permissionSnapshot.inputMonitoring != .authorized else {
-            return nil
+    private var configurationBlockingReason: AppBlockingReason? {
+        if let unavailablePrimaryIssue {
+            return AppBlockingReason(
+                kind: .primaryInputSourceUnavailable,
+                title: "默认输入法已失效",
+                message: unavailablePrimaryIssue,
+                nextStep: "请在设置里重新选择一个可用的默认输入法。"
+            )
+        }
+        if let unavailableVoiceIssue {
+            return AppBlockingReason(
+                kind: .voiceInputSourceUnavailable,
+                title: "语音输入法已失效",
+                message: unavailableVoiceIssue,
+                nextStep: "请在设置里重新选择一个可用的语音输入法。"
+            )
+        }
+        if selectedPrimaryInputSourceID == nil {
+            return AppBlockingReason(
+                kind: .primaryInputSourceMissing,
+                title: "默认输入法未配置",
+                message: "未配置默认输入法。",
+                nextStep: "请先在设置里选择一个默认输入法。"
+            )
+        }
+        if selectedVoiceInputSourceID == nil {
+            return AppBlockingReason(
+                kind: .voiceInputSourceMissing,
+                title: "语音输入法未配置",
+                message: "未配置语音输入法。",
+                nextStep: "请先在设置里选择一个语音输入法。"
+            )
+        }
+        if
+            let selectedPrimaryInputSourceID,
+            let selectedVoiceInputSourceID,
+            selectedPrimaryInputSourceID == selectedVoiceInputSourceID
+        {
+            return AppBlockingReason(
+                kind: .duplicateInputSources,
+                title: "输入法配置冲突",
+                message: "默认输入法和语音输入法不能相同。",
+                nextStep: "请把默认输入法和语音输入法改成两个不同的选项。"
+            )
         }
 
-        if runtimeTargetMismatchLikely {
-            return "输入监听权限可能已授予其他运行目标，但当前进程未命中已授权条目。请改用 .app 包，或在系统设置里重新勾选当前运行路径。"
-        }
-
-        return "系统尚未授予输入监听权限，VoiceSwitch 当前无法读取全局键盘事件。"
-    }
-
-    private var runtimeTargetMismatchLikely: Bool {
-        permissionSnapshot.bundleIdentifier == nil ||
-        permissionSnapshot.bundlePath == nil ||
-        permissionSnapshot.executablePath.contains("/.build/") ||
-        permissionSnapshot.executablePath.contains("/.dev-app/") ||
-        (permissionSnapshot.bundlePath?.contains("/.dev-app/") == true)
+        return nil
     }
 
     private func logAutomationStatusChange(reason: String) {
-        logEntries.append(
-            "trigger=automation_state reason=\(reason) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(isEnabled) can_run=\(canRun) event_tap=\(eventTapStatus.rawValue)"
+        let entry = "trigger=automation_state reason=\(reason) source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) enabled=\(isEnabled) can_run=\(canRun) event_tap=\(eventTapStatus.rawValue)"
+        guard lastLoggedAutomationState != entry else {
+            return
+        }
+        lastLoggedAutomationState = entry
+        appendLog(.diagnostic, entry)
+    }
+
+    private func appendLog(_ level: AppLogLevel, _ message: String) {
+        allLogEntries.append(
+            AppLogEntry(
+                timestamp: nowProvider(),
+                level: level,
+                message: message
+            )
         )
+        trimLogBuffer(for: level)
+    }
+
+    private func scheduleAutoSave() {
+        pendingSettingsSaveTask?.cancel()
+        pendingSettingsSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else {
+                return
+            }
+            guard let self else {
+                return
+            }
+            await MainActor.run {
+                self.persistSettings(immediate: false)
+            }
+        }
+    }
+
+    private func persistSettings(immediate: Bool) {
+        pendingSettingsSaveTask?.cancel()
+        pendingSettingsSaveTask = nil
+
+        do {
+            try settingsStore.save(
+                makeSettings(),
+                availableInputSourceIDs: availableInputSources.isEmpty
+                    ? nil
+                    : Set(availableInputSources.map(\.id))
+            )
+        } catch {
+            settingsSaveStatusMessage = error.localizedDescription
+            appendLog(.user, "设置保存失败：\(error.localizedDescription)")
+            appendLog(.diagnostic, "trigger=settings_save reason=validation_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(error.localizedDescription)")
+            return
+        }
+        applyLaunchAtLoginSetting()
+        settingsSaveStatusMessage = immediate ? "配置已保存。" : "已自动保存。"
+    }
+
+    private func applyLaunchAtLoginSetting() {
+        do {
+            try launchAtLoginController.setEnabled(launchAtLoginEnabled)
+            launchAtLoginErrorMessage = nil
+            appendLog(
+                .diagnostic,
+                "trigger=launch_at_login reason=applied source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) requested=\(launchAtLoginEnabled) result=success"
+            )
+        } catch {
+            launchAtLoginErrorMessage = "登录启动更新失败：\(error.localizedDescription)"
+            settingsSaveStatusMessage = "配置已保存，但登录启动更新失败。"
+            appendLog(
+                .diagnostic,
+                "trigger=launch_at_login reason=apply_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) requested=\(launchAtLoginEnabled) result=failed error=\(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func trimLogBuffer(for level: AppLogLevel) {
+        let limit = switch level {
+        case .user:
+            200
+        case .diagnostic:
+            1000
+        }
+
+        while allLogEntries.filter({ $0.level == level }).count > limit {
+            guard let index = allLogEntries.firstIndex(where: { $0.level == level }) else {
+                return
+            }
+            allLogEntries.remove(at: index)
+        }
+    }
+
+    private func makeLogExportReport() -> String {
+        let formatter = ISO8601DateFormatter()
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+
+        let header = [
+            "# VoiceSwitch Log Export",
+            "generated_at=\(formatter.string(from: nowProvider()))",
+            "version=\(version)",
+            "build=\(build)",
+            "status=\(statusSummary)",
+            "permissions=\(permissionsSummary)",
+            "listener=\(keyboardListenerStatusLabel)",
+            "runtime_executable_path=\(runtimeExecutablePath)",
+            "bundle_identifier=\(runtimeBundleIdentifier)",
+            "bundle_path=\(runtimeBundlePath)",
+            ""
+        ]
+
+        let entries = allLogEntries.map {
+            "[\($0.level.rawValue)] \(formatter.string(from: $0.timestamp)) \($0.message)"
+        }
+
+        return (header + entries).joined(separator: "\n")
+    }
+
+    private func maskPath(_ path: String?) -> String {
+        guard let path, !path.isEmpty else {
+            return "无"
+        }
+
+        var normalized = path
+        let homeDirectory = NSHomeDirectory()
+        if normalized.hasPrefix(homeDirectory) {
+            normalized = "~" + normalized.dropFirst(homeDirectory.count)
+        }
+
+        let components = normalized.split(separator: "/")
+        guard components.count > 4 else {
+            return normalized
+        }
+
+        let prefix = components.prefix(2).joined(separator: "/")
+        let suffix = components.suffix(2).joined(separator: "/")
+        return "\(prefix)/.../\(suffix)"
     }
 }

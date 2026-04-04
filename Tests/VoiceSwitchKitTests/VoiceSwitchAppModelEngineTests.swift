@@ -83,7 +83,7 @@ private final class EngineTestSettingsStore: SettingsStoring, @unchecked Sendabl
         initial
     }
 
-    func save(_ settings: VoiceSwitchSettings) {}
+    func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>?) throws {}
 }
 
 private struct EngineTestInputSourceProvider: InputSourceProviding, Sendable {

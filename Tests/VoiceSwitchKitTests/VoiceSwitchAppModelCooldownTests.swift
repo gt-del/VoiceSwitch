@@ -386,7 +386,7 @@ private final class CooldownTestSettingsStore: SettingsStoring, @unchecked Senda
         initial
     }
 
-    func save(_ settings: VoiceSwitchSettings) {}
+    func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>?) throws {}
 }
 
 private struct CooldownTestInputSourceProvider: InputSourceProviding, Sendable {

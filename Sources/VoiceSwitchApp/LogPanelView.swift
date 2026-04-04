@@ -1,8 +1,11 @@
+import AppKit
 import SwiftUI
 import VoiceSwitchKit
 
 struct LogPanelView: View {
     @Bindable var model: VoiceSwitchAppModel
+    @State private var selectedFilter: AppLogFilter = .user
+    @State private var exportStatusMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -15,6 +18,28 @@ struct LogPanelView: View {
             Text("键盘监听：\(model.keyboardListenerStatusLabel)")
             Text("辅助功能权限：\(model.accessibilityStatusLabel)")
             Text("最近原始键盘事件：\(model.lastRawKeyboardEventSummary ?? "无")")
+
+            Picker("日志范围", selection: $selectedFilter) {
+                Text("全部").tag(AppLogFilter.all)
+                Text("用户日志").tag(AppLogFilter.user)
+                Text("诊断日志").tag(AppLogFilter.diagnostic)
+            }
+            .pickerStyle(.segmented)
+
+            HStack {
+                Button("导出日志") {
+                    exportLogs()
+                }
+                .buttonStyle(.bordered)
+
+                if let exportStatusMessage {
+                    Text(exportStatusMessage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
                 Button("发送 Option 按下") {
@@ -31,15 +56,38 @@ struct LogPanelView: View {
                 }
             }
 
-            if model.logEntries.isEmpty {
+            if model.filteredLogEntries(selectedFilter).isEmpty {
                 ContentUnavailableView("暂无日志", systemImage: "text.append")
             } else {
-                List(model.logEntries, id: \.self) { entry in
-                    Text(entry)
+                List(model.filteredLogEntries(selectedFilter)) { entry in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(entry.level == .user ? "用户日志" : "诊断日志")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(entry.message)
+                            .textSelection(.enabled)
+                    }
                 }
             }
         }
         .padding()
         .frame(minWidth: 640, minHeight: 360)
+    }
+
+    private func exportLogs() {
+        let savePanel = NSSavePanel()
+        savePanel.nameFieldStringValue = "VoiceSwitch-logs.txt"
+        savePanel.allowedContentTypes = [.plainText]
+
+        guard savePanel.runModal() == .OK, let url = savePanel.url else {
+            return
+        }
+
+        do {
+            try model.exportLogs(to: url)
+            exportStatusMessage = "日志已导出到 \(url.lastPathComponent)。"
+        } catch {
+            exportStatusMessage = "日志导出失败：\(error.localizedDescription)"
+        }
     }
 }

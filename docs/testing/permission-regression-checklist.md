@@ -4,7 +4,12 @@
 
 本清单用于覆盖 VoiceSwitch 在 macOS 上与权限、全局键盘监听、输入源可用性和恢复链路相关的回归项。当前版本需要重点确认以下事实：
 
-- 主窗口会同时展示 `AXIsProcessTrusted`、`CGPreflightListenEventAccess`、当前可执行路径、Bundle ID、Bundle 路径
+- 主窗口和设置页都能区分：
+  - `AccessibilityDenied`
+  - `InputMonitoringDenied`
+  - `RuntimeIdentityMismatch`
+  - `KeyboardMonitoringStopped`
+- 主窗口默认不直接展示完整本机路径，完整路径改为通过导出日志获取
 - UI 能区分“系统未授权”和“当前运行目标未命中已授权条目”
 - `.app` 形态是权限验证和实机回归的主路径，`swift run` 只用于开发调试
 
@@ -17,8 +22,9 @@
   - 预期：阻塞原因明确指出是系统未授予辅助功能权限或输入监听权限
 
 - [ ] Permission granted after guidance
-  - 预期：在系统设置授予权限后，点击 `重试监听`
-  - 预期：主窗口恢复到可运行状态
+  - 预期：在系统设置授予权限后，切回 VoiceSwitch
+  - 预期：应用自动刷新权限并自动尝试恢复监听
+  - 预期：大多数情况下无需手动点击 `重试监听`
   - 预期：菜单栏状态与主窗口一致
 
 - [ ] Permission denied and app degrades safely
@@ -34,7 +40,7 @@
 - [ ] Event Tap fails during initialization
   - 预期：主窗口显示监听未运行
   - 预期：菜单栏状态不误报为正常
-  - 预期：可以通过 `重试监听` 触发恢复
+  - 预期：若自动恢复失败，可以通过 `重试监听` 触发恢复
 
 - [ ] Event Tap is invalidated and recovered
   - 预期：监听失效后记录恢复日志
@@ -44,9 +50,10 @@
 - [ ] Target input source is unavailable
   - 预期：Primary / Voice IME 缺失或相同会直接阻塞运行
   - 预期：错误提示显示在主窗口，不依赖日志
+  - 预期：非法配置不会写入持久层
 
 - [ ] Launch at Login enable / disable behavior is correct
-  - 预期：设置页切换后能正确保存
+  - 预期：设置页切换后自动保存
   - 预期：系统要求额外批准时，UI 给出明确提示
 
 - [ ] Degrade path evidence is logged
@@ -54,6 +61,14 @@
 
 - [ ] Recover path evidence is logged
   - 预期：日志包含 `restarted`、`running` 或权限恢复后的重试结果
+
+- [ ] Runtime identity mismatch can be explained
+  - 预期：README 可以解释为什么 `swift run` / Xcode / 固定 `.app` 会出现不同授权对象
+  - 预期：UI 能提示下一步应该重新绑定哪个运行目标
+
+- [ ] Log export keeps full diagnostics
+  - 预期：默认界面只展示遮盖后的路径
+  - 预期：导出日志包含完整运行路径、Bundle ID 和 Bundle 路径
 
 ## Blocking Risks
 
@@ -70,3 +85,4 @@
   - 当前运行路径
   - 当前 Bundle ID
   - 当前 Bundle 路径
+  - 当前阻塞原因 kind

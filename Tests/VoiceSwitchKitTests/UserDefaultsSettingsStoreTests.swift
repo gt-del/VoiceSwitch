@@ -4,7 +4,7 @@ import Testing
 
 struct UserDefaultsSettingsStoreTests {
     @Test
-    func saveAndLoadRoundTrip() {
+    func saveAndLoadRoundTrip() throws {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
         defaults.removePersistentDomain(forName: "VoiceSwitchApp")
@@ -20,7 +20,7 @@ struct UserDefaultsSettingsStoreTests {
             cooldownDuration: 7,
         )
 
-        store.save(expected)
+        try store.save(expected)
 
         let actual = store.load()
 
@@ -100,7 +100,7 @@ struct UserDefaultsSettingsStoreTests {
     }
 
     @Test
-    func savePurgesLegacyDelayKeysFromCurrentDomain() {
+    func savePurgesLegacyDelayKeysFromCurrentDomain() throws {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
         defaults.removePersistentDomain(forName: "VoiceSwitchApp")
@@ -108,7 +108,7 @@ struct UserDefaultsSettingsStoreTests {
         defaults.set(0.8, forKey: "voiceSwitch.voiceExitDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
-        store.save(
+        try store.save(
             VoiceSwitchSettings(
                 primaryInputSourceID: "im.rime.inputmethod.Squirrel.Hans",
                 voiceInputSourceID: "com.bytedance.inputmethod.doubaoime.pinyin",
@@ -120,5 +120,39 @@ struct UserDefaultsSettingsStoreTests {
 
         #expect(defaults.object(forKey: "voiceSwitch.optionPendingWindow") == nil)
         #expect(defaults.object(forKey: "voiceSwitch.voiceExitDelay") == nil)
+    }
+
+    @Test
+    func saveRejectsInvalidConfiguration() {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
+
+        #expect(throws: VoiceSwitchSettingsValidationError.duplicateInputSources) {
+            try store.save(
+                VoiceSwitchSettings(
+                    primaryInputSourceID: "same.id",
+                    voiceInputSourceID: "same.id"
+                ),
+                availableInputSourceIDs: ["same.id"]
+            )
+        }
+    }
+
+    @Test
+    func saveRejectsInputSourcesOutsideProvidedContext() {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        let store = UserDefaultsSettingsStore(userDefaults: defaults, legacyDomainNames: [])
+
+        #expect(throws: VoiceSwitchSettingsValidationError.primaryInputSourceUnavailable("missing.primary")) {
+            try store.save(
+                VoiceSwitchSettings(
+                    primaryInputSourceID: "missing.primary",
+                    voiceInputSourceID: "voice.id"
+                ),
+                availableInputSourceIDs: ["voice.id"]
+            )
+        }
     }
 }

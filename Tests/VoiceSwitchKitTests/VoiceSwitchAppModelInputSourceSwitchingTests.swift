@@ -343,7 +343,7 @@ private final class InputSwitchingTestSettingsStore: SettingsStoring, @unchecked
         initial
     }
 
-    func save(_ settings: VoiceSwitchSettings) {}
+    func save(_ settings: VoiceSwitchSettings, availableInputSourceIDs: Set<String>?) throws {}
 }
 
 private struct InputSwitchingTestInputSourceProvider: InputSourceProviding, Sendable {

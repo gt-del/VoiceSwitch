@@ -14,8 +14,13 @@ struct SettingsView: View {
                     Section("状态") {
                         Toggle("启用 VoiceSwitch", isOn: enabledBinding)
                         Text("当前状态：\(model.statusSummary)")
+                        Text("权限与监听：\(model.permissionsSummary) | 监听：\(model.keyboardListenerStatusLabel)")
+                        Text("运行对象匹配：\(model.runtimeIdentityStatusLabel)")
                         Text(statusMessage)
                             .foregroundStyle(model.canRun && model.isEnabled ? Color.secondary : Color.orange)
+                        Text("下一步：\(model.nextStepSummary)")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
                     }
 
                     InputSourcesSection(model: model)
@@ -26,18 +31,9 @@ struct SettingsView: View {
                 }
                 .formStyle(.grouped)
 
-                HStack {
-                    if let settingsSaveStatusMessage = model.settingsSaveStatusMessage {
-                        Text(settingsSaveStatusMessage)
-                            .font(.callout)
-                            .foregroundStyle(model.launchAtLoginErrorMessage == nil ? Color.secondary : Color.orange)
-                    }
-                    Spacer()
-                    Button("保存配置") {
-                        model.saveSelections()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
+                Text(model.settingsAutosaveSummary)
+                    .font(.callout)
+                    .foregroundStyle(model.launchAtLoginErrorMessage == nil ? Color.secondary : Color.orange)
             }
             .padding(20)
         }
@@ -47,10 +43,7 @@ struct SettingsView: View {
     private var enabledBinding: Binding<Bool> {
         Binding(
             get: { model.isEnabled },
-            set: {
-                model.markSettingsEdited()
-                model.setEnabled($0)
-            }
+            set: { model.setEnabled($0) }
         )
     }
 
@@ -58,7 +51,7 @@ struct SettingsView: View {
         if !model.isEnabled {
             return "VoiceSwitch 当前已禁用。启用后才会接管 Option 键并自动切换输入法。"
         }
-        return model.blockingIssue ?? "当前配置可运行。"
+        return model.blockingReason?.message ?? "当前配置可运行。"
     }
 
     private var settingsIntroCard: some View {
@@ -89,6 +82,10 @@ private struct InputSourcesSection: View {
                     Text(source.displayName).tag(String?.some(source.id))
                 }
             }
+            if let issue = model.primaryInputSourceIssue {
+                Text(issue)
+                    .foregroundStyle(.orange)
+            }
 
             Picker("Voice IME", selection: voiceBinding) {
                 Text("未设置").tag(String?.none)
@@ -96,12 +93,9 @@ private struct InputSourcesSection: View {
                     Text(source.displayName).tag(String?.some(source.id))
                 }
             }
-
-            if !model.configurationIssues.isEmpty {
-                ForEach(model.configurationIssues, id: \.self) { issue in
-                    Text(issue)
-                        .foregroundStyle(.orange)
-                }
+            if let issue = model.voiceInputSourceIssue {
+                Text(issue)
+                    .foregroundStyle(.orange)
             }
         }
     }
@@ -147,30 +141,21 @@ private struct BehaviorSection: View {
     private var voiceActivationDelayBinding: Binding<TimeInterval> {
         Binding(
             get: { model.voiceActivationDelay },
-            set: {
-                model.markSettingsEdited()
-                model.voiceActivationDelay = $0
-            }
+            set: { model.updateVoiceActivationDelay($0) }
         )
     }
 
     private var releaseReturnDelayBinding: Binding<TimeInterval> {
         Binding(
             get: { model.releaseReturnDelay },
-            set: {
-                model.markSettingsEdited()
-                model.releaseReturnDelay = $0
-            }
+            set: { model.updateReleaseReturnDelay($0) }
         )
     }
 
     private var cooldownDurationBinding: Binding<TimeInterval> {
         Binding(
             get: { model.cooldownDuration },
-            set: {
-                model.markSettingsEdited()
-                model.cooldownDuration = $0
-            }
+            set: { model.updateCooldownDuration($0) }
         )
     }
 }
@@ -183,11 +168,14 @@ private struct PermissionsSection: View {
             Text("辅助功能权限：\(model.accessibilityStatusLabel) (AXIsProcessTrusted=\(model.accessibilityTrustedValueLabel))")
             Text("输入监听权限：\(model.inputMonitoringStatusLabel) (CGPreflightListenEventAccess=\(model.inputMonitoringTrustedValueLabel))")
             Text("键盘监听：\(model.keyboardListenerStatusLabel)")
-            Text("当前运行路径：\(model.runtimeExecutablePath)")
+            Text("运行对象匹配：\(model.runtimeIdentityStatusLabel)")
+            Text(model.runtimeIdentityGuidance)
+                .foregroundStyle(.secondary)
+            Text("当前运行路径：\(model.maskedRuntimeExecutablePath)")
                 .textSelection(.enabled)
             Text("当前 Bundle ID：\(model.runtimeBundleIdentifier)")
                 .textSelection(.enabled)
-            Text("当前 Bundle 路径：\(model.runtimeBundlePath)")
+            Text("当前 Bundle 路径：\(model.maskedRuntimeBundlePath)")
                 .textSelection(.enabled)
 
             if let errorMessage = model.keyboardMonitoringErrorMessage {
@@ -207,13 +195,22 @@ private struct PermissionsSection: View {
                 .foregroundStyle(.secondary)
 
             HStack {
-                Button("重试监听") {
-                    model.retryKeyboardMonitoring()
+                if model.shouldHighlightRetryMonitoring {
+                    Button("重试监听") {
+                        model.retryKeyboardMonitoring()
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Button("重试监听") {
+                        model.retryKeyboardMonitoring()
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 Button("打开系统设置") {
                     openAccessibilitySettings()
                 }
+                .buttonStyle(.bordered)
             }
         }
     }
@@ -229,10 +226,7 @@ private struct PermissionsSection: View {
     private var launchAtLoginBinding: Binding<Bool> {
         Binding(
             get: { model.launchAtLoginEnabled },
-            set: {
-                model.markSettingsEdited()
-                model.launchAtLoginEnabled = $0
-            }
+            set: { model.updateLaunchAtLoginEnabled($0) }
         )
     }
 }

@@ -67,8 +67,8 @@ struct MainWindowView: View {
         if !model.isEnabled {
             return "VoiceSwitch 当前已禁用，不会监听 Option 键，也不会自动切换输入法。"
         }
-        if let blockingIssue = model.blockingIssue {
-            return blockingIssue
+        if let blockingReason = model.blockingReason {
+            return blockingReason.message
         }
         return "当前配置可运行。关闭主窗口后应用仍会常驻，你可以从 Dock 或菜单栏重新打开。"
     }
@@ -77,7 +77,7 @@ struct MainWindowView: View {
         if !model.isEnabled {
             return .secondary
         }
-        if model.blockingIssue != nil {
+        if model.blockingReason != nil {
             return .orange
         }
         return .green
@@ -87,7 +87,7 @@ struct MainWindowView: View {
         if !model.isEnabled {
             return "power"
         }
-        if model.blockingIssue != nil {
+        if model.blockingReason != nil {
             return "exclamationmark.triangle.fill"
         }
         return "checkmark.circle.fill"
@@ -115,9 +115,9 @@ private struct DashboardSection: View {
 
             LazyVGrid(columns: summaryColumns, alignment: .leading, spacing: 16) {
                 summaryCard(title: "当前状态", value: model.statusSummary)
-                summaryCard(title: "监听状态", value: listenerSummary)
-                summaryCard(title: "默认输入法", value: model.selectedPrimaryInputSourceName)
-                summaryCard(title: "语音输入法", value: model.selectedVoiceInputSourceName)
+                summaryCard(title: "当前输入法组合", value: model.configurationSummary)
+                summaryCard(title: "权限与监听", value: permissionAndListenerSummary)
+                summaryCard(title: "最近一次动作", value: model.lastActionSummary)
             }
 
             detailPanel
@@ -137,32 +137,41 @@ private struct DashboardSection: View {
             }
             .buttonStyle(.borderedProminent)
 
-            Button("重试监听") {
-                model.retryKeyboardMonitoring()
+            if model.shouldHighlightRetryMonitoring {
+                Button("重试监听") {
+                    model.retryKeyboardMonitoring()
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button("重试监听") {
+                    model.retryKeyboardMonitoring()
+                }
+                .buttonStyle(.bordered)
             }
             Button("打开设置") {
                 openSettings()
             }
+            .buttonStyle(.bordered)
             Button("打开日志") {
                 openLogs()
             }
+            .buttonStyle(.bordered)
         }
-        .buttonStyle(.bordered)
     }
 
-    private var listenerSummary: String {
+    private var permissionAndListenerSummary: String {
         if !model.isEnabled {
             return "已停用"
         }
-        return model.eventTapStatus == .running ? "运行中" : "未运行"
+        return "\(model.permissionsSummary) | 监听：\(model.keyboardListenerStatusLabel)"
     }
 
     private var dashboardSummary: String {
         if !model.isEnabled {
             return "应用保持常驻，但自动切换暂停。重新启用后才会接管 Option 键。"
         }
-        if let blockingIssue = model.blockingIssue {
-            return "当前不可用：\(blockingIssue)"
+        if let blockingReason = model.blockingReason {
+            return "当前不可用：\(blockingReason.title)。\(blockingReason.nextStep)"
         }
         return "默认保持 Primary IME，按住 Option 切到 Voice IME，松开后恢复。"
     }
@@ -190,6 +199,11 @@ private struct DashboardSection: View {
                     Text(model.keyboardListenerStatusLabel)
                 }
                 GridRow {
+                    Text("运行对象匹配")
+                        .foregroundStyle(.secondary)
+                    Text(model.runtimeIdentityStatusLabel)
+                }
+                GridRow {
                     Text("当前输入法组合")
                         .foregroundStyle(.secondary)
                     Text(model.configurationSummary)
@@ -200,29 +214,51 @@ private struct DashboardSection: View {
                     Text(model.lastActionSummary)
                 }
                 GridRow {
-                    Text("最近原始事件")
+                    Text("下一步")
                         .foregroundStyle(.secondary)
-                    Text(model.lastRawKeyboardEventSummary ?? "none")
-                }
-                GridRow {
-                    Text("当前运行路径")
-                        .foregroundStyle(.secondary)
-                    Text(model.runtimeExecutablePath)
-                        .textSelection(.enabled)
-                }
-                GridRow {
-                    Text("当前 Bundle ID")
-                        .foregroundStyle(.secondary)
-                    Text(model.runtimeBundleIdentifier)
-                        .textSelection(.enabled)
-                }
-                GridRow {
-                    Text("当前 Bundle 路径")
-                        .foregroundStyle(.secondary)
-                    Text(model.runtimeBundlePath)
-                        .textSelection(.enabled)
+                    Text(model.nextStepSummary)
                 }
             }
+
+            DisclosureGroup("诊断信息") {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
+                    GridRow {
+                        Text("AXIsProcessTrusted")
+                            .foregroundStyle(.secondary)
+                        Text(model.accessibilityTrustedValueLabel)
+                    }
+                    GridRow {
+                        Text("CGPreflightListenEventAccess")
+                            .foregroundStyle(.secondary)
+                        Text(model.inputMonitoringTrustedValueLabel)
+                    }
+                    GridRow {
+                        Text("最近原始事件")
+                            .foregroundStyle(.secondary)
+                        Text(model.lastRawKeyboardEventSummary ?? "无")
+                    }
+                    GridRow {
+                        Text("当前运行路径")
+                            .foregroundStyle(.secondary)
+                        Text(model.maskedRuntimeExecutablePath)
+                            .textSelection(.enabled)
+                    }
+                    GridRow {
+                        Text("当前 Bundle ID")
+                            .foregroundStyle(.secondary)
+                        Text(model.runtimeBundleIdentifier)
+                            .textSelection(.enabled)
+                    }
+                    GridRow {
+                        Text("当前 Bundle 路径")
+                            .foregroundStyle(.secondary)
+                        Text(model.maskedRuntimeBundlePath)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.top, 10)
+            }
+            .font(.callout)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -235,26 +271,13 @@ private struct DashboardSection: View {
 
     @ViewBuilder
     private var issuePanel: some View {
-        if let issue = model.blockingIssue {
-            VStack(alignment: .leading, spacing: 6) {
-                Label("当前阻塞问题", systemImage: "exclamationmark.triangle.fill")
+        if let blockingReason = model.blockingReason {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(blockingReason.title, systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
-                Text(issue)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-            .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.orange.opacity(0.25))
-            )
-        } else if !model.configurationIssues.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Label("配置问题", systemImage: "slider.horizontal.3")
-                    .font(.headline)
-                ForEach(model.configurationIssues, id: \.self) { issue in
-                    Text(issue)
-                }
+                Text(blockingReason.message)
+                Text("下一步：\(blockingReason.nextStep)")
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
