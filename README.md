@@ -1,15 +1,15 @@
 # VoiceSwitch
 
-VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前版本围绕一个最小可用闭环构建：
+VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
 
 - 默认保持用户配置的 `Primary IME`
 - 按住 `Option` 切换到 `Voice IME`
 - 松开 `Option` 切回 `Primary IME`
 - 用户手动切换输入法后进入 `cooldown`
 
-当前实现目标是 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
+当前版本为 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
 
-## 当前已支持能力
+## 当前能力
 
 - 主窗口 Dashboard / Settings / Logs
 - 菜单栏状态入口、打开主窗口、快速启停、重试、退出
@@ -22,7 +22,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - 用户手动切换检测与真实 cooldown
 - Launch at Login 接入 `SMAppService.mainApp`
 
-## 当前产品结构
+## 产品结构
 
 - 启动应用后直接显示主窗口，可在窗口内完成主要配置
 - 关闭主窗口后应用不会退出，会继续保留 Dock 与菜单栏入口常驻运行
@@ -30,7 +30,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - `Dashboard` 默认只展示当前状态、输入法组合、权限/监听状态、最近动作
 - 诊断字段收进 `诊断信息` 折叠区，避免主视图被路径和底层布尔值占满
 - `Settings` 负责 Input Sources、Behavior、Permissions & System 配置，设置改动会自动保存并自动应用
-- `Logs` 默认显示用户日志，可切换到完整诊断日志和原始事件
+- `Logs` 默认显示用户日志，可切换到诊断日志继续排障
 - `Permissions & System` 会显示实时权限检测值与运行对象信息：
   - `AXIsProcessTrusted`
   - `CGPreflightListenEventAccess`
@@ -48,7 +48,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
   - `Retry Monitoring`
   - `Quit`
 
-## 当前状态机
+## 状态机
 
 当前实现只保留 3 个状态：
 
@@ -76,7 +76,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 - `manualSwitchDetected`
 - `cooldownExpired`
 
-## 当前自动切换行为
+## 自动切换行为
 
 核心闭环如下：
 
@@ -96,7 +96,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，主交互位于应用窗�
 
 ## 设置项
 
-当前主窗口设置页暴露以下参数，改动后会自动保存并持久化；新事件会立即使用新配置：
+主窗口设置页暴露以下参数，改动后会自动保存并持久化；新事件会立即使用新配置：
 
 - `Primary IME`
 - `Voice IME`
@@ -213,7 +213,7 @@ swift test
   - 当前运行目标未命中已授权条目
   - 权限和配置正常，但监听服务未运行
 - `Launch at Login` 可能返回 `requiresApproval`，需要用户在系统登录项中确认
-- 主窗口负责主要错误提示；日志页用于排查，不再作为主配置入口
+- 主窗口负责主要错误提示；日志页用于排查，不作为主配置入口
 - 当前日志分为用户日志和诊断日志两层，界面默认展示用户日志；完整诊断仍保留在同一页面中
 
 ## 运行身份 FAQ

@@ -14,13 +14,8 @@ struct SettingsView: View {
                     Section("状态") {
                         Toggle("启用 VoiceSwitch", isOn: enabledBinding)
                         Text("当前状态：\(model.statusSummary)")
-                        Text("权限与监听：\(model.permissionsSummary) | 监听：\(model.keyboardListenerStatusLabel)")
-                        Text("运行对象匹配：\(model.runtimeIdentityStatusLabel)")
                         Text(statusMessage)
                             .foregroundStyle(model.canRun && model.isEnabled ? Color.secondary : Color.orange)
-                        Text("下一步：\(model.nextStepSummary)")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
                     }
 
                     InputSourcesSection(model: model)
@@ -31,7 +26,7 @@ struct SettingsView: View {
                 }
                 .formStyle(.grouped)
 
-                Text(model.settingsAutosaveSummary)
+                Text(model.settingsAutosaveText)
                     .font(.callout)
                     .foregroundStyle(model.launchAtLoginErrorMessage == nil ? Color.secondary : Color.orange)
             }
@@ -49,7 +44,7 @@ struct SettingsView: View {
 
     private var statusMessage: String {
         if !model.isEnabled {
-            return "VoiceSwitch 当前已禁用。启用后才会接管 Option 键并自动切换输入法。"
+            return "VoiceSwitch 当前已停用。启用后才会接管 Option 键并自动切换输入法。"
         }
         return model.blockingReason?.message ?? "当前配置可运行。"
     }
@@ -58,7 +53,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("设置")
                 .font(.title2.weight(.semibold))
-            Text("在这里配置默认输入法、语音输入法，以及 Option 触发切换时的延迟和冷却行为。")
+            Text("在这里配置默认输入法、语音输入法，以及按住 Option 时的切换行为。")
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -165,18 +160,12 @@ private struct PermissionsSection: View {
 
     var body: some View {
         Section("权限与系统") {
-            Text("辅助功能权限：\(model.accessibilityStatusLabel) (AXIsProcessTrusted=\(model.accessibilityTrustedValueLabel))")
-            Text("输入监听权限：\(model.inputMonitoringStatusLabel) (CGPreflightListenEventAccess=\(model.inputMonitoringTrustedValueLabel))")
+            Text("辅助功能权限：\(model.accessibilityStatusLabel)")
+            Text("输入监听权限：\(model.inputMonitoringStatusLabel)")
             Text("键盘监听：\(model.keyboardListenerStatusLabel)")
             Text("运行对象匹配：\(model.runtimeIdentityStatusLabel)")
-            Text(model.runtimeIdentityGuidance)
+            Text(model.runtimeIdentityGuidanceText)
                 .foregroundStyle(.secondary)
-            Text("当前运行路径：\(model.maskedRuntimeExecutablePath)")
-                .textSelection(.enabled)
-            Text("当前 Bundle ID：\(model.runtimeBundleIdentifier)")
-                .textSelection(.enabled)
-            Text("当前 Bundle 路径：\(model.maskedRuntimeBundlePath)")
-                .textSelection(.enabled)
 
             if let errorMessage = model.keyboardMonitoringErrorMessage {
                 Text(errorMessage)
@@ -190,22 +179,12 @@ private struct PermissionsSection: View {
                     .foregroundStyle(.orange)
             }
 
-            Text("如果你是通过 `swift run` 启动，macOS 可能不会把它识别成标准 App Bundle。遇到权限问题时，优先使用 `.app` 形态启动。")
+            Text("遇到权限问题时，优先使用固定 `.app` 形态启动，并确认系统设置里勾选的是当前运行目标。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack {
-                if model.shouldHighlightRetryMonitoring {
-                    Button("重试监听") {
-                        model.retryKeyboardMonitoring()
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Button("重试监听") {
-                        model.retryKeyboardMonitoring()
-                    }
-                    .buttonStyle(.bordered)
-                }
+                RetryMonitoringButton(model: model)
 
                 Button("打开系统设置") {
                     openAccessibilitySettings()

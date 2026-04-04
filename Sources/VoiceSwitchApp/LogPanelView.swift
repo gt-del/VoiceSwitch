@@ -9,15 +9,15 @@ struct LogPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("日志与诊断")
+            Text("日志")
                 .font(.title2)
 
+            Text("用户日志用于日常查看；诊断日志用于排障。")
+                .foregroundStyle(.secondary)
+
             Text("当前状态：\(model.statusSummary)")
-            Text("最近事件：\(model.lastInputBehaviorSummary)")
-            Text("最近动作：\(model.lastActionSummary)")
-            Text("键盘监听：\(model.keyboardListenerStatusLabel)")
-            Text("辅助功能权限：\(model.accessibilityStatusLabel)")
-            Text("最近原始键盘事件：\(model.lastRawKeyboardEventSummary ?? "无")")
+                .font(.callout)
+                .foregroundStyle(.secondary)
 
             Picker("日志范围", selection: $selectedFilter) {
                 Text("全部").tag(AppLogFilter.all)
@@ -39,21 +39,6 @@ struct LogPanelView: View {
                 }
 
                 Spacer()
-            }
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], alignment: .leading, spacing: 8) {
-                Button("发送 Option 按下") {
-                    model.dispatchTestEvent(.optionPressed)
-                }
-                Button("发送 Option 松开") {
-                    model.dispatchTestEvent(.optionReleased)
-                }
-                Button("发送手动切换") {
-                    model.dispatchTestEvent(.manualSwitchDetected)
-                }
-                Button("发送冷却到期") {
-                    model.dispatchTestEvent(.cooldownExpired)
-                }
             }
 
             if model.filteredLogEntries(selectedFilter).isEmpty {

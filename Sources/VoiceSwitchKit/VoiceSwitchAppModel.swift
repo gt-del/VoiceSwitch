@@ -69,16 +69,6 @@ public final class VoiceSwitchAppModel {
             return "未知"
         }
     }
-    public var runtimeIdentityGuidance: String {
-        switch runtimeIdentityStatus {
-        case .matched:
-            return "当前运行目标与已授权对象一致。"
-        case .mismatched:
-            return "系统里已勾选的对象可能不是当前这个进程，请改用固定 .app 产物并重新授权当前运行路径。"
-        case .unknown:
-            return "当前无法确认授权对象是否命中了这个运行目标。"
-        }
-    }
     public var primaryInputSourceIssue: String? {
         if let unavailablePrimaryIssue {
             return unavailablePrimaryIssue
@@ -111,10 +101,6 @@ public final class VoiceSwitchAppModel {
         }
         return nil
     }
-    public var settingsAutosaveSummary: String {
-        settingsSaveStatusMessage ?? "设置会自动保存并自动应用。"
-    }
-
     public var configurationIssues: [String] {
         [primaryInputSourceIssue, voiceInputSourceIssue]
             .compactMap { $0 }
@@ -144,10 +130,6 @@ public final class VoiceSwitchAppModel {
         case .cooldown:
             return "冷却中"
         }
-    }
-
-    public var configurationSummary: String {
-        "默认：\(displayName(forInputSourceID: selectedPrimaryInputSourceID)) | 语音：\(displayName(forInputSourceID: selectedVoiceInputSourceID))"
     }
 
     public var selectedPrimaryInputSourceName: String {
@@ -182,62 +164,6 @@ public final class VoiceSwitchAppModel {
             return "未运行"
         }
     }
-    public var permissionsSummary: String {
-        "辅助功能：\(accessibilityStatusLabel) | 输入监听：\(inputMonitoringStatusLabel)"
-    }
-    public var nextStepSummary: String {
-        if !isEnabled {
-            return "启用 VoiceSwitch 后才会接管 Option 键。"
-        }
-        return blockingReason?.nextStep ?? "当前配置可运行，可以直接按住 Option 切换语音输入法。"
-    }
-
-    public var lastActionSummary: String {
-        guard let lastEngineAction else {
-            return "无"
-        }
-
-        switch lastEngineAction {
-        case .switchToPrimary:
-            return "切回默认输入法"
-        case .switchToVoice:
-            return "切到语音输入法"
-        case .enterCooldown:
-            return "进入冷却"
-        case .noOp:
-            return "无动作"
-        }
-    }
-
-    public var lastInputBehaviorSummary: String {
-        guard let lastInputBehavior else {
-            return "无"
-        }
-
-        switch lastInputBehavior {
-        case .optionPressed:
-            return "Option 按下"
-        case .optionReleased:
-            return "Option 松开"
-        case .typingDetected:
-            return "检测到输入"
-        case .typingKeyLetters:
-            return "字母键"
-        case .typingKeyNumbers:
-            return "数字键"
-        case .typingKeySpace:
-            return "空格键"
-        case .typingKeyDelete:
-            return "删除键"
-        case .typingKeyReturnKey:
-            return "回车键"
-        case .manualSwitchDetected:
-            return "手动切换输入法"
-        case .cooldownExpired:
-            return "冷却结束"
-        }
-    }
-
     public var runtimeExecutablePath: String {
         permissionSnapshot.executablePath
     }
@@ -544,14 +470,6 @@ public final class VoiceSwitchAppModel {
 
     public func sendTestEvent(_ event: InputBehavior) throws {
         try advanceEngine(for: event, rawDescription: nil)
-    }
-
-    public func dispatchTestEvent(_ event: InputBehavior) {
-        do {
-            try sendTestEvent(event)
-        } catch {
-            appendLog(.diagnostic, "Engine event=\(event.rawValue) failed error=\(String(describing: error))")
-        }
     }
 
     public func handleKeyboardEvent(_ summary: KeyboardEventSummary) {
@@ -1240,7 +1158,7 @@ public final class VoiceSwitchAppModel {
             "version=\(version)",
             "build=\(build)",
             "status=\(statusSummary)",
-            "permissions=\(permissionsSummary)",
+            "permissions=辅助功能：\(accessibilityStatusLabel) | 输入监听：\(inputMonitoringStatusLabel)",
             "listener=\(keyboardListenerStatusLabel)",
             "runtime_executable_path=\(runtimeExecutablePath)",
             "bundle_identifier=\(runtimeBundleIdentifier)",

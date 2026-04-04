@@ -65,10 +65,10 @@ struct MainWindowView: View {
 
     private var bannerMessage: String {
         if !model.isEnabled {
-            return "VoiceSwitch 当前已禁用，不会监听 Option 键，也不会自动切换输入法。"
+            return "VoiceSwitch 当前已停用，不会监听 Option 键，也不会自动切换输入法。"
         }
-        if let blockingReason = model.blockingReason {
-            return blockingReason.message
+        if model.blockingReason != nil {
+            return "当前不可用，请按页面中的建议处理后再试。"
         }
         return "当前配置可运行。关闭主窗口后应用仍会常驻，你可以从 Dock 或菜单栏重新打开。"
     }
@@ -115,16 +115,18 @@ private struct DashboardSection: View {
 
             LazyVGrid(columns: summaryColumns, alignment: .leading, spacing: 16) {
                 summaryCard(title: "当前状态", value: model.statusSummary)
-                summaryCard(title: "当前输入法组合", value: model.configurationSummary)
+                summaryCard(title: "当前输入法组合", value: model.inputSourceSummaryText)
                 summaryCard(title: "权限与监听", value: permissionAndListenerSummary)
-                summaryCard(title: "最近一次动作", value: model.lastActionSummary)
+                summaryCard(title: "最近一次动作", value: model.lastActionDisplayText)
             }
 
-            detailPanel
+            guidancePanel
 
             actionBar
 
             issuePanel
+
+            diagnosticPanel
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -137,17 +139,7 @@ private struct DashboardSection: View {
             }
             .buttonStyle(.borderedProminent)
 
-            if model.shouldHighlightRetryMonitoring {
-                Button("重试监听") {
-                    model.retryKeyboardMonitoring()
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                Button("重试监听") {
-                    model.retryKeyboardMonitoring()
-                }
-                .buttonStyle(.bordered)
-            }
+            RetryMonitoringButton(model: model)
             Button("打开设置") {
                 openSettings()
             }
@@ -163,63 +155,38 @@ private struct DashboardSection: View {
         if !model.isEnabled {
             return "已停用"
         }
-        return "\(model.permissionsSummary) | 监听：\(model.keyboardListenerStatusLabel)"
+        return model.permissionSummaryText
     }
 
     private var dashboardSummary: String {
         if !model.isEnabled {
             return "应用保持常驻，但自动切换暂停。重新启用后才会接管 Option 键。"
         }
-        if let blockingReason = model.blockingReason {
-            return "当前不可用：\(blockingReason.title)。\(blockingReason.nextStep)"
+        if model.blockingReason != nil {
+            return "当前不可用。请先处理权限、配置或监听问题，再继续使用自动切换。"
         }
         return "默认保持 Primary IME，按住 Option 切到 Voice IME，松开后恢复。"
     }
 
-    @ViewBuilder
-    private var detailPanel: some View {
+    private var guidancePanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("运行概览")
+            Text("下一步建议")
                 .font(.headline.weight(.semibold))
+            Text(model.nextStepDisplayText)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(cardFill, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.primary.opacity(0.06))
+        )
+    }
 
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
-                GridRow {
-                    Text("辅助功能权限")
-                        .foregroundStyle(.secondary)
-                    Text("\(model.accessibilityStatusLabel) (AXIsProcessTrusted=\(model.accessibilityTrustedValueLabel))")
-                }
-                GridRow {
-                    Text("输入监听权限")
-                        .foregroundStyle(.secondary)
-                    Text("\(model.inputMonitoringStatusLabel) (CGPreflightListenEventAccess=\(model.inputMonitoringTrustedValueLabel))")
-                }
-                GridRow {
-                    Text("键盘监听")
-                        .foregroundStyle(.secondary)
-                    Text(model.keyboardListenerStatusLabel)
-                }
-                GridRow {
-                    Text("运行对象匹配")
-                        .foregroundStyle(.secondary)
-                    Text(model.runtimeIdentityStatusLabel)
-                }
-                GridRow {
-                    Text("当前输入法组合")
-                        .foregroundStyle(.secondary)
-                    Text(model.configurationSummary)
-                }
-                GridRow {
-                    Text("最近动作")
-                        .foregroundStyle(.secondary)
-                    Text(model.lastActionSummary)
-                }
-                GridRow {
-                    Text("下一步")
-                        .foregroundStyle(.secondary)
-                    Text(model.nextStepSummary)
-                }
-            }
-
+    private var diagnosticPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
             DisclosureGroup("诊断信息") {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                     GridRow {
@@ -276,8 +243,6 @@ private struct DashboardSection: View {
                 Label(blockingReason.title, systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                 Text(blockingReason.message)
-                Text("下一步：\(blockingReason.nextStep)")
-                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
