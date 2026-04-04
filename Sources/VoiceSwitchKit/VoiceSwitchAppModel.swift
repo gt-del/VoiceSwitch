@@ -502,15 +502,15 @@ public final class VoiceSwitchAppModel {
 
         appendLog(.diagnostic, "Keyboard raw=\(summary.rawDescription)")
 
-        guard let mappedBehavior = summary.mappedBehavior else {
+        guard let keyboardBehavior = keyboardBehaviorToAdvance(for: summary) else {
             return
         }
 
         do {
-            try advanceEngine(for: mappedBehavior, rawDescription: summary.rawDescription)
+            try advanceEngine(for: keyboardBehavior, rawDescription: summary.rawDescription)
         } catch {
             appendLog(.diagnostic,
-                "Keyboard raw=\(summary.rawDescription) event=\(mappedBehavior.rawValue) failed error=\(String(describing: error))"
+                "Keyboard raw=\(summary.rawDescription) event=\(keyboardBehavior.rawValue) failed error=\(String(describing: error))"
             )
         }
     }
@@ -593,6 +593,15 @@ public final class VoiceSwitchAppModel {
         }
 
         executeEngineAction(result.action, delayedBy: result.timer)
+    }
+
+    private func keyboardBehaviorToAdvance(for summary: KeyboardEventSummary) -> InputBehavior? {
+        switch summary {
+        case .controlReleased:
+            return nil
+        default:
+            return summary.mappedBehavior
+        }
     }
 
     private func executeEngineAction(_ action: EngineAction, delayedBy timer: EngineTimer?) {

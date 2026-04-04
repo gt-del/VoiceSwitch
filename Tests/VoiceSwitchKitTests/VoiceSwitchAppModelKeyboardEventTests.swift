@@ -131,12 +131,13 @@ struct VoiceSwitchAppModelKeyboardEventTests {
     @Test
     func leftControlReleaseDoesNotSwitchBackToPrimary() throws {
         let service = StubKeyboardEventService()
+        let bridge = RecordingToggleKeyboardEngineBridge()
         let model = VoiceSwitchAppModel(
             settingsStore: KeyboardTestSettingsStore(initial: .configured),
             inputSourceProvider: KeyboardTestInputSourceProvider(sources: .configuredSources),
             inputSourceSwitchingService: StubKeyboardInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC"),
             permissionProvider: KeyboardTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
-            engineBridge: ToggleKeyboardEngineBridge(),
+            engineBridge: bridge,
             keyboardEventService: service
         )
 
@@ -144,10 +145,13 @@ struct VoiceSwitchAppModelKeyboardEventTests {
         service.emit(.controlPressed(keyCode: 59))
         service.emit(.controlReleased(keyCode: 59))
 
+        #expect(bridge.recordedEvents == [.controlPressed])
         #expect(model.currentEngineState == .voiceMode)
-        #expect(model.lastEngineAction == .noOp)
-        #expect(model.lastInputBehavior == .controlReleased)
-        #expect(model.logEntries.contains { $0.contains("trigger=controlReleased") })
+        #expect(model.lastEngineAction == .switchToVoice)
+        #expect(model.lastInputBehavior == .controlPressed)
+        #expect(model.lastRawKeyboardEventSummary == "leftControlUp(keyCode:59)")
+        #expect(model.logEntries.contains { $0.contains("Keyboard raw=leftControlUp(keyCode:59)") })
+        #expect(!model.logEntries.contains { $0.contains("trigger=controlReleased") })
     }
 
     @Test
