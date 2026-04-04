@@ -2,6 +2,10 @@ import SwiftUI
 import VoiceSwitchKit
 import AppKit
 
+enum VoiceSwitchWindowID {
+    static let main = "main"
+}
+
 @main
 struct VoiceSwitchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -32,7 +36,7 @@ struct VoiceSwitchApp: App {
     }
 
     var body: some Scene {
-        Window("VoiceSwitch", id: "main") {
+        Window("VoiceSwitch", id: VoiceSwitchWindowID.main) {
             MainWindowView(model: model)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     model.handleApplicationDidBecomeActive()

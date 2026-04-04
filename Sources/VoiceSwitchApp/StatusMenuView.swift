@@ -24,9 +24,8 @@ struct StatusMenuView: View {
 
             Divider()
 
-            Button("打开 VoiceSwitch") {
-                NSApp.activate(ignoringOtherApps: true)
-                openWindow(id: "main")
+            Button("Open VoiceSwitch") {
+                openMainWindow()
             }
 
             Button(model.isEnabled ? "停用" : "启用") {
@@ -37,11 +36,22 @@ struct StatusMenuView: View {
                 model.retryKeyboardMonitoring()
             }
 
-            Button("退出") {
+            Button("Quit VoiceSwitch") {
                 NSApplication.shared.terminate(nil)
             }
         }
         .padding(12)
         .frame(width: 260)
+    }
+
+    private func openMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: VoiceSwitchWindowID.main)
+
+        DispatchQueue.main.async {
+            if let mainWindow = NSApp.windows.first(where: { $0.title == "VoiceSwitch" }) {
+                mainWindow.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 }

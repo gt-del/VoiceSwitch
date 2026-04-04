@@ -37,7 +37,7 @@ let package = Package(
         ),
         .testTarget(
             name: "VoiceSwitchKitTests",
-            dependencies: ["VoiceSwitchKit"]
+            dependencies: ["VoiceSwitchKit", "VoiceSwitchApp"]
         ),
         .plugin(
             name: "BuildRustCoreFFIPlugin",
