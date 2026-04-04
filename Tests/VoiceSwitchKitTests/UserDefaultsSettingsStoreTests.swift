@@ -44,12 +44,26 @@ struct UserDefaultsSettingsStoreTests {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
         defaults.set(0.18, forKey: "voiceSwitch.optionPendingWindow")
-        defaults.set(0.8, forKey: "voiceSwitch.voiceExitDelay")
+        defaults.set(0.1, forKey: "voiceSwitch.voiceExitDelay")
 
         let store = UserDefaultsSettingsStore(userDefaults: defaults)
         let actual = store.load()
 
         #expect(actual.voiceActivationDelay == 0.18)
-        #expect(actual.releaseReturnDelay == 0.8)
+        #expect(actual.releaseReturnDelay == 0.1)
+    }
+
+    @Test
+    func loadResetsOutOfRangeDelayValuesToDefaults() {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        defaults.set(0.8, forKey: "voiceSwitch.releaseReturnDelay")
+        defaults.set(0.6, forKey: "voiceSwitch.optionPendingWindow")
+
+        let store = UserDefaultsSettingsStore(userDefaults: defaults)
+        let actual = store.load()
+
+        #expect(actual.voiceActivationDelay == 0)
+        #expect(actual.releaseReturnDelay == 0)
     }
 }

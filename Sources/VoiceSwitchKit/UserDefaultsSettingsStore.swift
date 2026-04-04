@@ -57,11 +57,18 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
 
     private func loadDelay(primaryKey: String, legacyKey: String, defaultValue: TimeInterval) -> TimeInterval {
         if userDefaults.object(forKey: primaryKey) != nil {
-            return userDefaults.double(forKey: primaryKey)
+            return sanitizedDelay(userDefaults.double(forKey: primaryKey), defaultValue: defaultValue)
         }
         if userDefaults.object(forKey: legacyKey) != nil {
-            return userDefaults.double(forKey: legacyKey)
+            return sanitizedDelay(userDefaults.double(forKey: legacyKey), defaultValue: defaultValue)
         }
         return defaultValue
+    }
+
+    private func sanitizedDelay(_ value: TimeInterval, defaultValue: TimeInterval) -> TimeInterval {
+        guard value.isFinite, (0.0...0.3).contains(value) else {
+            return defaultValue
+        }
+        return value
     }
 }
