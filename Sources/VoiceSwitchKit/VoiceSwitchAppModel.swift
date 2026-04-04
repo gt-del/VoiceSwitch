@@ -464,7 +464,7 @@ public final class VoiceSwitchAppModel {
         if result.timer?.kind != .releaseReturnDelay {
             releaseReturnScheduler.cancel()
         }
-        if result.timer?.kind != .cooldown {
+        if result.timer?.kind != .cooldown && result.state != .cooldown {
             cooldownScheduler.cancel()
         }
 
