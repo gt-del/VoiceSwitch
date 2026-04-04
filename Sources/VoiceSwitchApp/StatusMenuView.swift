@@ -45,13 +45,18 @@ struct StatusMenuView: View {
     }
 
     private func openMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        openWindow(id: VoiceSwitchWindowID.main)
+        AppDelegate.shared?.prepareForMainWindowPresentation()
 
+        if let mainWindow = AppDelegate.shared?.mainWindow() {
+            mainWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        openWindow(id: VoiceSwitchWindowID.main)
         DispatchQueue.main.async {
-            if let mainWindow = NSApp.windows.first(where: { $0.title == "VoiceSwitch" }) {
-                mainWindow.makeKeyAndOrderFront(nil)
-            }
+            AppDelegate.shared?.mainWindow()?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 }

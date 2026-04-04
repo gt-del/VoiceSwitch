@@ -534,7 +534,7 @@ private final class StubKeyboardEventService: KeyboardEventListening, @unchecked
 }
 
 private final class StubKeyboardInputSourceSwitchingService: InputSourceSwitching, @unchecked Sendable {
-    let currentInputSourceID: String?
+    var currentInputSourceID: String?
 
     init(currentInputSourceID: String?) {
         self.currentInputSourceID = currentInputSourceID
@@ -544,7 +544,9 @@ private final class StubKeyboardInputSourceSwitchingService: InputSourceSwitchin
         currentInputSourceID
     }
 
-    func switchToInputSource(id: String) throws {}
+    func switchToInputSource(id: String) throws {
+        currentInputSourceID = id
+    }
 }
 
 private final class StubKeyboardInputObservationService: InputSourceObserving, @unchecked Sendable {

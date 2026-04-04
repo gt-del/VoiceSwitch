@@ -4,6 +4,7 @@ import AppKit
 
 enum VoiceSwitchWindowID {
     static let main = "main"
+    static let title = "VoiceSwitch"
 }
 
 @main
@@ -36,12 +37,13 @@ struct VoiceSwitchApp: App {
     }
 
     var body: some Scene {
-        Window("VoiceSwitch", id: VoiceSwitchWindowID.main) {
+        Window(VoiceSwitchWindowID.title, id: VoiceSwitchWindowID.main) {
             MainWindowView(model: model)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     model.handleApplicationDidBecomeActive()
                 }
         }
+        .defaultLaunchBehavior(.suppressed)
 
         MenuBarExtra("VoiceSwitch", systemImage: "waveform.and.mic") {
             StatusMenuView(model: model)

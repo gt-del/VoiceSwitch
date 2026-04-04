@@ -4,6 +4,29 @@ import Observation
 @MainActor
 @Observable
 public final class VoiceSwitchAppModel {
+    private enum RealInputSourceState {
+        case idlePrimary
+        case voiceMode
+
+        var engineState: EngineState {
+            switch self {
+            case .idlePrimary:
+                return .idlePrimary
+            case .voiceMode:
+                return .voiceMode
+            }
+        }
+
+        var toggleAction: EngineAction {
+            switch self {
+            case .idlePrimary:
+                return .switchToVoice
+            case .voiceMode:
+                return .switchToPrimary
+            }
+        }
+    }
+
     public private(set) var availableInputSources: [InputSourceDescriptor]
     public private(set) var permissionSnapshot: PermissionSnapshot
     public private(set) var currentEngineState: EngineState
@@ -558,20 +581,34 @@ public final class VoiceSwitchAppModel {
             return
         }
 
+        if try handleExplicitControlToggleIfNeeded(for: event, rawDescription: rawDescription) {
+            return
+        }
+
         let previousState = currentEngineState
         let result = try engineBridge.transition(
             from: previousState,
             event: event,
             configuration: engineConfiguration
         )
+        let resolvedTargetState = resolvedEngineState(
+            after: result,
+            for: event
+        )
+        let diagnostic = DiagnosticEntry(
+            trigger: result.diagnostic.trigger,
+            reason: result.diagnostic.reason,
+            sourceState: result.diagnostic.sourceState,
+            targetState: resolvedTargetState
+        )
 
         lastInputBehavior = event
-        currentEngineState = result.state
+        currentEngineState = resolvedTargetState
         lastEngineAction = result.action
 
         updateTimerScheduling(previousState: previousState, event: event, result: result)
         appendTransitionLog(
-            diagnostic: result.diagnostic,
+            diagnostic: diagnostic,
             action: result.action,
             timer: result.timer,
             rawDescription: rawDescription
@@ -588,7 +625,7 @@ public final class VoiceSwitchAppModel {
             cooldownDeadline = nil
             appendLog(.user, "冷却已结束，自动切换恢复。")
             appendLog(.diagnostic,
-                "trigger=cooldownExpired reason=cooldown_ended source_state=cooldown target_state=\(result.state.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)"
+                "trigger=cooldownExpired reason=cooldown_ended source_state=cooldown target_state=\(resolvedTargetState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)"
             )
         }
 
@@ -630,6 +667,59 @@ public final class VoiceSwitchAppModel {
         case .enterCooldown, .noOp:
             break
         }
+    }
+
+    private func handleExplicitControlToggleIfNeeded(
+        for event: InputBehavior,
+        rawDescription: String?
+    ) throws -> Bool {
+        guard event == .controlPressed else {
+            return false
+        }
+
+        let realInputSourceState: RealInputSourceState?
+        do {
+            realInputSourceState = try currentRealInputSourceState()
+        } catch {
+            appendLog(.diagnostic,
+                "trigger=controlPressed reason=current_input_source_read_failed_fallback_to_engine source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=unknown target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))"
+            )
+            return false
+        }
+
+        guard let realInputSourceState else {
+            return false
+        }
+
+        if currentEngineState == .cooldown {
+            switchToVoiceScheduler.cancel()
+            switchToPrimaryScheduler.cancel()
+
+            let action = realInputSourceState.toggleAction
+            lastInputBehavior = event
+            lastEngineAction = action
+
+            var entry = "trigger=controlPressed reason=explicit_toggle_using_current_input_source source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=\(action.rawValue) current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=\(targetInputSourceID(for: action) ?? "none") cooldown_status=\(cooldownStatusLabel)"
+            if let rawDescription {
+                entry += " raw_event=\(rawDescription)"
+            }
+            appendLog(.diagnostic, entry)
+
+            executeEngineAction(action, delayedBy: timerForExplicitToggle(action))
+            return true
+        }
+
+        let realEngineState = realInputSourceState.engineState
+        guard realEngineState != currentEngineState else {
+            return false
+        }
+
+        let previousState = currentEngineState
+        currentEngineState = realEngineState
+        appendLog(.diagnostic,
+            "trigger=controlPressed reason=aligned_with_current_input_source source_state=\(previousState.rawValue) target_state=\(realEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel)"
+        )
+        return false
     }
 
     private func executeInputSourceSwitch(
@@ -738,6 +828,31 @@ public final class VoiceSwitchAppModel {
         } catch {
             appendLog(.diagnostic, "trigger=cooldownExpired reason=timer_delivery_failed source_state=\(currentEngineState.rawValue) target_state=\(currentEngineState.rawValue) action=noOp current_input_source=\(currentInputSourceIDForLog() ?? "unknown") target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))")
         }
+    }
+
+    private func resolvedEngineState(
+        after result: EngineTransitionResult,
+        for event: InputBehavior
+    ) -> EngineState {
+        guard event == .cooldownExpired else {
+            return result.state
+        }
+
+        let realInputSourceState: RealInputSourceState?
+        do {
+            realInputSourceState = try currentRealInputSourceState()
+        } catch {
+            appendLog(.diagnostic,
+                "trigger=cooldownExpired reason=current_input_source_read_failed_fallback_to_engine source_state=\(result.diagnostic.sourceState.rawValue) target_state=\(result.state.rawValue) action=\(result.action.rawValue) current_input_source=unknown target_input_source=none cooldown_status=\(cooldownStatusLabel) error=\(String(describing: error))"
+            )
+            return result.state
+        }
+
+        guard let realInputSourceState else {
+            return result.state
+        }
+
+        return realInputSourceState.engineState
     }
 
     private var engineConfiguration: EngineConfiguration {
@@ -970,6 +1085,30 @@ public final class VoiceSwitchAppModel {
 
     private func currentInputSourceIDForLog() -> String? {
         try? inputSourceSwitchingService.currentSelectedInputSourceID()
+    }
+
+    private func currentRealInputSourceState() throws -> RealInputSourceState? {
+        guard let currentInputSourceID = try inputSourceSwitchingService.currentSelectedInputSourceID() else {
+            return nil
+        }
+        if currentInputSourceID == selectedPrimaryInputSourceID {
+            return .idlePrimary
+        }
+        if currentInputSourceID == selectedVoiceInputSourceID {
+            return .voiceMode
+        }
+        return nil
+    }
+
+    private func timerForExplicitToggle(_ action: EngineAction) -> EngineTimer? {
+        switch action {
+        case .switchToPrimary where switchToPrimaryDelay > 0:
+            return EngineTimer(kind: .switchToPrimaryDelay, delaySeconds: switchToPrimaryDelay)
+        case .switchToVoice where switchToVoiceDelay > 0:
+            return EngineTimer(kind: .switchToVoiceDelay, delaySeconds: switchToVoiceDelay)
+        case .switchToPrimary, .switchToVoice, .enterCooldown, .noOp:
+            return nil
+        }
     }
 
     private func makeSettings() -> VoiceSwitchSettings {

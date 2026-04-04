@@ -122,7 +122,7 @@ struct VoiceSwitchAppModelCooldownTests {
     }
 
     @Test
-    func cooldownSuppressesAutomaticSwitches() throws {
+    func controlPressedDuringCooldownUsesCurrentVoiceInputSourceToSwitchBackToPrimary() throws {
         let switchingService = CooldownTestInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
         let observationService = StubInputSourceObservationService()
         let scheduler = StubCooldownScheduler()
@@ -150,15 +150,18 @@ struct VoiceSwitchAppModelCooldownTests {
 
         try model.load()
         observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
+        switchingService.currentInputSourceID = "com.example.voice"
         try model.sendTestEvent(.controlPressed)
 
-        #expect(switchingService.switchCalls.isEmpty)
+        #expect(switchingService.switchCalls == ["com.apple.keylayout.ABC"])
         #expect(model.currentEngineState == .cooldown)
-        #expect(model.logEntries.contains { $0.contains("reason=cooldown_skipped_automatic_switch") })
+        #expect(model.lastEngineAction == .switchToPrimary)
+        #expect(model.isCooldownActive)
+        #expect(model.logEntries.contains { $0.contains("reason=explicit_toggle_using_current_input_source") })
     }
 
     @Test
-    func cooldownIgnoredEventsDoNotCancelExistingCooldownTimer() throws {
+    func controlPressedDuringCooldownUsesCurrentPrimaryInputSourceToSwitchToVoice() throws {
         let switchingService = CooldownTestInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
         let observationService = StubInputSourceObservationService()
         let scheduler = StubCooldownScheduler()
@@ -186,7 +189,81 @@ struct VoiceSwitchAppModelCooldownTests {
 
         try model.load()
         observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
+        switchingService.currentInputSourceID = "com.apple.keylayout.ABC"
         try model.sendTestEvent(.controlPressed)
+
+        #expect(switchingService.switchCalls == ["com.example.voice"])
+        #expect(model.currentEngineState == .cooldown)
+        #expect(model.lastEngineAction == .switchToVoice)
+        #expect(model.isCooldownActive)
+    }
+
+    @Test
+    func cooldownSuppressesAutomaticSwitches() throws {
+        let switchingService = CooldownTestInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
+        let observationService = StubInputSourceObservationService()
+        let scheduler = StubCooldownScheduler()
+        let clock = MutableNowProvider(now: Date(timeIntervalSince1970: 4_750))
+        let model = VoiceSwitchAppModel(
+            settingsStore: CooldownTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: CooldownTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            inputSourceSwitchingService: switchingService,
+            inputSourceObservationService: observationService,
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: RuleBasedCooldownEngineBridge(),
+            cooldownScheduler: scheduler,
+            nowProvider: clock.now
+        )
+
+        try model.load()
+        observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
+        try model.sendTestEvent(.typingDetected)
+
+        #expect(switchingService.switchCalls.isEmpty)
+        #expect(model.currentEngineState == .cooldown)
+        #expect(model.logEntries.contains { $0.contains("reason=cooldown_skipped_automatic_switch") })
+    }
+
+    @Test
+    func cooldownIgnoredEventsDoNotCancelExistingCooldownTimer() throws {
+        let switchingService = CooldownTestInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
+        let observationService = StubInputSourceObservationService()
+        let scheduler = StubCooldownScheduler()
+        let clock = MutableNowProvider(now: Date(timeIntervalSince1970: 4_900))
+        let model = VoiceSwitchAppModel(
+            settingsStore: CooldownTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: CooldownTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            inputSourceSwitchingService: switchingService,
+            inputSourceObservationService: observationService,
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: RuleBasedCooldownEngineBridge(),
+            cooldownScheduler: scheduler,
+            nowProvider: clock.now
+        )
+
+        try model.load()
+        observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
+        try model.sendTestEvent(.typingDetected)
         scheduler.fire()
 
         #expect(model.lastInputBehavior == .cooldownExpired)
@@ -230,6 +307,82 @@ struct VoiceSwitchAppModelCooldownTests {
         #expect(model.cooldownDeadline == Date(timeIntervalSince1970: 5_007))
         #expect(scheduler.scheduleCallCount == 2)
         #expect(model.logEntries.contains { $0.contains("reason=cooldown_reset") })
+    }
+
+    @Test
+    func cooldownExpiryRealignsStateToVoiceModeWhenVoiceInputSourceRemainsSelected() throws {
+        let switchingService = CooldownTestInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
+        let observationService = StubInputSourceObservationService()
+        let scheduler = StubCooldownScheduler()
+        let clock = MutableNowProvider(now: Date(timeIntervalSince1970: 5_500))
+        let model = VoiceSwitchAppModel(
+            settingsStore: CooldownTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: CooldownTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            inputSourceSwitchingService: switchingService,
+            inputSourceObservationService: observationService,
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: RuleBasedCooldownEngineBridge(),
+            cooldownScheduler: scheduler,
+            nowProvider: clock.now
+        )
+
+        try model.load()
+        observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
+        switchingService.currentInputSourceID = "com.example.voice"
+        clock.current = Date(timeIntervalSince1970: 5_505)
+        scheduler.fire()
+
+        #expect(model.lastInputBehavior == .cooldownExpired)
+        #expect(model.currentEngineState == .voiceMode)
+        #expect(!model.isCooldownActive)
+    }
+
+    @Test
+    func cooldownExpiryFallsBackToIdlePrimaryWhenCurrentInputSourceReadFails() throws {
+        let switchingService = CooldownTestInputSourceSwitchingService(currentInputSourceID: "com.apple.keylayout.ABC")
+        let observationService = StubInputSourceObservationService()
+        let scheduler = StubCooldownScheduler()
+        let clock = MutableNowProvider(now: Date(timeIntervalSince1970: 5_750))
+        let model = VoiceSwitchAppModel(
+            settingsStore: CooldownTestSettingsStore(
+                initial: VoiceSwitchSettings(
+                    primaryInputSourceID: "com.apple.keylayout.ABC",
+                    voiceInputSourceID: "com.example.voice"
+                )
+            ),
+            inputSourceProvider: CooldownTestInputSourceProvider(
+                sources: [
+                    InputSourceDescriptor(id: "com.apple.keylayout.ABC", displayName: "ABC", isSelected: true),
+                    InputSourceDescriptor(id: "com.example.voice", displayName: "Voice", isSelected: false),
+                ]
+            ),
+            inputSourceSwitchingService: switchingService,
+            inputSourceObservationService: observationService,
+            permissionProvider: CooldownTestPermissionProvider(current: PermissionSnapshot(accessibility: .authorized, inputMonitoring: .authorized)),
+            engineBridge: RuleBasedCooldownEngineBridge(),
+            cooldownScheduler: scheduler,
+            nowProvider: clock.now
+        )
+
+        try model.load()
+        observationService.emit(.changed(inputSourceID: "com.apple.keylayout.US", rawDescription: "inputSourceChanged(id:com.apple.keylayout.US)"))
+        switchingService.currentInputSourceError = CooldownTestError.readFailed
+        clock.current = Date(timeIntervalSince1970: 5_755)
+        scheduler.fire()
+
+        #expect(model.lastInputBehavior == .cooldownExpired)
+        #expect(model.currentEngineState == .idlePrimary)
+        #expect(!model.isCooldownActive)
     }
 }
 
@@ -359,6 +512,7 @@ private final class MutableNowProvider: @unchecked Sendable {
 
 private final class CooldownTestInputSourceSwitchingService: InputSourceSwitching, @unchecked Sendable {
     var currentInputSourceID: String?
+    var currentInputSourceError: Error?
     var switchCalls: [String] = []
 
     init(currentInputSourceID: String?) {
@@ -366,13 +520,20 @@ private final class CooldownTestInputSourceSwitchingService: InputSourceSwitchin
     }
 
     func currentSelectedInputSourceID() throws -> String? {
-        currentInputSourceID
+        if let currentInputSourceError {
+            throw currentInputSourceError
+        }
+        return currentInputSourceID
     }
 
     func switchToInputSource(id: String) throws {
         switchCalls.append(id)
         currentInputSourceID = id
     }
+}
+
+private enum CooldownTestError: Error {
+    case readFailed
 }
 
 private final class CooldownTestSettingsStore: SettingsStoring, @unchecked Sendable {

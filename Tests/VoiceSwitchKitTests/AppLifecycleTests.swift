@@ -3,7 +3,6 @@ import Foundation
 import Testing
 @testable import VoiceSwitchApp
 
-@MainActor
 struct AppLifecycleTests {
     @Test
     func menuBarInfoPlistEnablesLsuiElement() throws {
@@ -21,19 +20,41 @@ struct AppLifecycleTests {
     }
 
     @Test
-    func appDelegateUsesAccessoryActivationPolicy() {
-        let application = NSApplication.shared
-        let previousPolicy = application.activationPolicy()
-        let delegate = AppDelegate()
+    func activationCoordinatorLaunchesAsAccessory() {
+        let coordinator = AppActivationPolicyCoordinator()
 
-        delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
-
-        #expect(application.activationPolicy() == .accessory)
-
-        _ = application.setActivationPolicy(previousPolicy)
+        #expect(coordinator.launchPolicy() == .accessory)
     }
 
     @Test
+    func activationCoordinatorUsesRegularForOpeningMainWindow() {
+        let coordinator = AppActivationPolicyCoordinator()
+
+        #expect(coordinator.policyForOpeningMainWindow() == .regular)
+    }
+
+    @Test
+    func activationCoordinatorReturnsAccessoryWhenNoVisibleManagedWindowRemains() {
+        let coordinator = AppActivationPolicyCoordinator()
+        let windows = [
+            ManagedAppWindow(title: VoiceSwitchWindowID.title, isVisible: false),
+        ]
+
+        #expect(coordinator.policyAfterManagedWindowChange(windows: windows) == .accessory)
+    }
+
+    @Test
+    func activationCoordinatorKeepsCurrentPolicyWhileManagedWindowIsVisible() {
+        let coordinator = AppActivationPolicyCoordinator()
+        let windows = [
+            ManagedAppWindow(title: VoiceSwitchWindowID.title, isVisible: true),
+        ]
+
+        #expect(coordinator.policyAfterManagedWindowChange(windows: windows) == nil)
+    }
+
+    @Test
+    @MainActor
     func appDelegateDoesNotTerminateAfterLastWindowCloses() {
         let delegate = AppDelegate()
 
