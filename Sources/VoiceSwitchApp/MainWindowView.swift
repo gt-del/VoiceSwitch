@@ -40,9 +40,6 @@ struct MainWindowView: View {
             }
         }
         .frame(minWidth: 860, minHeight: 620)
-        .task {
-            try? model.load()
-        }
     }
 
     private var statusBanner: some View {
@@ -65,12 +62,12 @@ struct MainWindowView: View {
 
     private var bannerMessage: String {
         if !model.isEnabled {
-            return "VoiceSwitch 当前已停用，不会监听左 Control，也不会自动切换输入法。"
+            return "VoiceSwitch 当前已停用，不会监听 Fn 双击，也不会自动切换输入法。"
         }
         if model.blockingReason != nil {
             return "当前不可用，请按页面中的建议处理后再试。"
         }
-        return "第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。关闭主窗口后应用仍会常驻。"
+        return "双击 Fn 切到语音输入法，再次双击 Fn 切回普通输入法。关闭主窗口后应用仍会常驻。"
     }
 
     private var bannerColor: Color {
@@ -183,17 +180,17 @@ private struct DashboardSection: View {
 
     private var dashboardSummary: String {
         if !model.isEnabled {
-            return "应用保持常驻，但自动切换暂停。重新启用后才会接管左 Control。"
+            return "应用保持常驻，但自动切换暂停。重新启用后才会接管 Fn 双击。"
         }
         if model.blockingReason != nil {
             return "当前不可用。请先处理权限、配置或监听问题，再继续使用自动切换。"
         }
-        return "默认保持普通输入法，第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。"
+        return "默认保持普通输入法，双击 Fn 切到语音输入法，再次双击 Fn 切回普通输入法。"
     }
 
     private var nextStepText: String? {
         if !model.isEnabled {
-            return "启用 VoiceSwitch 后才会接管左 Control。"
+            return "启用 VoiceSwitch 后才会接管 Fn 双击。"
         }
         return model.blockingReason?.nextStep
     }

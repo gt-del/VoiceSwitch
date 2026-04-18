@@ -341,7 +341,7 @@ public final class VoiceSwitchAppModel {
             permissionSnapshot = permissionProvider.requestAccessibilityAuthorization()
             if permissionSnapshot.accessibility != .authorized {
                 keyboardMonitoringErrorMessage = permissionBlockingReason?.message
-                appendLog(.user, "辅助功能权限未就绪，VoiceSwitch 当前无法监听左 Control。")
+                appendLog(.user, "辅助功能权限未就绪，VoiceSwitch 当前无法监听 Fn 双击。")
                 appendLog(.diagnostic, "listener=keyboard_monitoring authorization=requested result=denied")
             }
         } else {
@@ -1302,8 +1302,8 @@ public final class VoiceSwitchAppModel {
             return AppBlockingReason(
                 kind: .runtimeIdentityMismatch,
                 title: "授权对象不匹配",
-                message: "系统里已授权的对象可能不是当前这个运行进程，当前进程未命中已授权条目，所以 VoiceSwitch 仍然拿不到权限。",
-                nextStep: "请从固定的 .app 产物启动，并在系统设置里重新勾选当前运行路径对应的 VoiceSwitch。"
+                message: "系统里已授权的对象可能不是当前这个运行进程，当前进程未命中已授权条目，所以 VoiceSwitch 仍然拿不到权限。若你刚覆盖安装过本地构建，ad hoc 签名变化也会导致系统把它当成新的对象。",
+                nextStep: "请只从 /Applications/VoiceSwitch.app 启动，并在系统设置里重新勾选当前运行路径对应的 VoiceSwitch。"
             )
         }
 
@@ -1311,7 +1311,7 @@ public final class VoiceSwitchAppModel {
             return AppBlockingReason(
                 kind: .accessibilityDenied,
                 title: "辅助功能权限未授权",
-                message: "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听左 Control。",
+                message: "系统尚未授予辅助功能权限，VoiceSwitch 当前无法监听 Fn 双击。",
                 nextStep: "请打开系统设置里的“辅助功能”，勾选当前运行的 VoiceSwitch。"
             )
         }

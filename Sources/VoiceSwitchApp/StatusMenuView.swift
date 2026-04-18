@@ -3,7 +3,6 @@ import VoiceSwitchKit
 
 struct StatusMenuView: View {
     @Bindable var model: VoiceSwitchAppModel
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -11,7 +10,7 @@ struct StatusMenuView: View {
                 .font(.headline)
 
             Text("当前状态：\(model.statusSummary)")
-            Text("第一次按左 Control 切到语音输入法，第二次按左 Control 切回普通输入法。")
+            Text("双击 Fn 切到语音输入法，再次双击 Fn 切回普通输入法。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -45,18 +44,6 @@ struct StatusMenuView: View {
     }
 
     private func openMainWindow() {
-        AppDelegate.shared?.prepareForMainWindowPresentation()
-
-        if let mainWindow = AppDelegate.shared?.mainWindow() {
-            mainWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        openWindow(id: VoiceSwitchWindowID.main)
-        DispatchQueue.main.async {
-            AppDelegate.shared?.mainWindow()?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        AppDelegate.shared?.showMainWindow()
     }
 }

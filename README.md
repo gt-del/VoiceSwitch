@@ -1,10 +1,10 @@
 # VoiceSwitch
 
-VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 双击切换输入法；第一次按下切到语音输入法，第二次按下切回普通输入法。主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
+VoiceSwitch 是一个运行于 macOS 的桌面应用，用双击 `Fn` 切换输入法；双击一次切到语音输入法，再次双击切回普通输入法。主交互位于应用窗口，菜单栏只保留状态入口和快速控制。当前产品语义如下：
 
 - 默认保持用户配置的普通输入法
-- 第一次按下左 `Control` 切换到语音输入法
-- 第二次按下左 `Control` 切回普通输入法
+- 双击 `Fn` 切换到语音输入法
+- 再次双击 `Fn` 切回普通输入法
 - 用户手动切换输入法后进入 `cooldown`
 
 当前版本为 `v0.1.0`，支持 macOS 15+，并已用 Rust FFI 替换早期的 CLI bridge。
@@ -71,12 +71,14 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 双击�
 - `manualSwitchDetected`
 - `cooldownExpired`
 
+这里的 `controlPressed` / `controlReleased` 仍是内部兼容事件名；用户可见触发键已经切换为双击 `Fn`。
+
 ## 自动切换行为
 
 核心闭环如下：
 
-1. 第一次按下左 `Control` 后触发 `idlePrimary + controlPressed -> voiceMode + switchToVoice`
-2. 第二次按下左 `Control` 后触发 `voiceMode + controlPressed -> idlePrimary + switchToPrimary`
+1. 第一次完成双击 `Fn` 后触发 `idlePrimary + controlPressed -> voiceMode + switchToVoice`
+2. 第二次完成双击 `Fn` 后触发 `voiceMode + controlPressed -> idlePrimary + switchToPrimary`
 3. `* + manualSwitchDetected -> cooldown + enterCooldown`
 4. `cooldown + cooldownExpired -> idlePrimary + noOp`
 
@@ -109,7 +111,7 @@ VoiceSwitch 是一个运行于 macOS 的桌面应用，用左 `Control` 双击�
 | `switchToPrimaryDelay` | `0.00s` | `0.0...0.3` |
 | `cooldownDuration` | `5.0s` | `0.5...30.0` |
 
-设置页说明统一为：第一次按左 `Control` 切到语音输入法，第二次按左 `Control` 切回普通输入法。
+设置页说明统一为：双击 `Fn` 切到语音输入法，再次双击 `Fn` 切回普通输入法。
 
 ## 日志字段
 
@@ -166,6 +168,110 @@ Swift 测试：
 ```bash
 swift test
 ```
+
+## 从仓库直接使用
+
+推荐分成两种方式：
+
+1. 快速试跑：适合本地验证功能是否正常
+2. 固定安装：适合日常长期使用
+
+### 环境要求
+
+- macOS 15+
+- Xcode 16 / Swift 6.2 工具链
+- Rust / cargo 可用
+
+确认环境：
+
+```bash
+swift --version
+cargo --version
+```
+
+### 方式一：快速试跑
+
+直接运行：
+
+```bash
+./scripts/run-dev-app.sh
+```
+
+这会：
+
+- 自动构建 Swift + Rust FFI
+- 在仓库根目录生成 `.dev-app/VoiceSwitch.app`
+- 自动打开这个开发态 `.app`
+
+适用场景：
+
+- 第一次确认仓库能否正常构建
+- 本地调试 UI、日志和状态机行为
+
+不适用场景：
+
+- 长期使用
+- 反复授予系统权限后希望身份保持稳定
+
+### 方式二：固定安装到 `/Applications`
+
+这是当前最适合长期使用的方式。按下面步骤执行：
+
+```bash
+swift build -c release --product VoiceSwitchApp
+rm -rf dist/VoiceSwitch.app
+mkdir -p dist/VoiceSwitch.app/Contents/MacOS dist/VoiceSwitch.app/Contents/Resources
+cp Info.plist dist/VoiceSwitch.app/Contents/Info.plist
+cp .build/arm64-apple-macosx/release/VoiceSwitchApp dist/VoiceSwitch.app/Contents/MacOS/VoiceSwitchApp
+cp dist/AppIcon.icns dist/VoiceSwitch.app/Contents/Resources/AppIcon.icns
+codesign --force --deep --sign - dist/VoiceSwitch.app
+rm -rf /Applications/VoiceSwitch.app
+ditto dist/VoiceSwitch.app /Applications/VoiceSwitch.app
+open -a /Applications/VoiceSwitch.app
+```
+
+这条链路的目标是始终只使用一个运行目标：
+
+- `/Applications/VoiceSwitch.app`
+
+后续如果你准备长期用这个仓库版本，也建议始终只打开这个路径，不要在 `.dev-app`、Xcode 和 `/Applications` 之间来回切。
+
+### 首次启动后的必做步骤
+
+第一次打开后，进入应用窗口完成以下配置：
+
+1. 在 `Settings` 里选择“普通输入法”和“语音输入法”
+2. 打开系统设置，分别授予：
+   - `辅助功能`
+   - `输入监听`
+3. 完全退出 VoiceSwitch，再重新打开一次
+
+注意：
+
+- 关闭主窗口不等于退出应用
+- 需要从菜单栏里点 `Quit`，或确认菜单栏图标已经消失，才算真正退出
+
+### 覆盖安装后的权限说明
+
+当前仓库里的本地 `.app` 仍使用 `ad hoc` 签名：
+
+- 每次重新构建再覆盖 `/Applications/VoiceSwitch.app`
+- macOS 都可能把它当成一个新的授权对象
+
+所以只要你重新覆盖安装过一次，就可能需要重新做这两步：
+
+1. 在“辅助功能”和“输入监听”里删除旧的 `VoiceSwitch` 条目
+2. 重新添加并勾选 `/Applications/VoiceSwitch.app`
+
+如果应用里显示“授权对象不匹配”，优先按上面这两步处理。
+
+### 运行建议
+
+- 长期使用：只运行 `/Applications/VoiceSwitch.app`
+- 快速调试：使用 `./scripts/run-dev-app.sh`
+- 不建议长期使用：`swift run VoiceSwitchApp`
+
+如果你切换了运行目标，系统权限很可能也要跟着重新绑定。
 
 推荐运行方式：
 
