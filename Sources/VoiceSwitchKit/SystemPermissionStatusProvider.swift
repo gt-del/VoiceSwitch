@@ -1,5 +1,43 @@
 import ApplicationServices
 import Foundation
+import Security
+
+enum CodeSignatureStyle: Equatable, Sendable {
+    case signed
+    case adHoc
+    case unknown
+}
+
+func runtimeIdentityLikelyMismatch(
+    accessibilityTrusted: Bool,
+    inputMonitoringTrusted: Bool,
+    executablePath: String,
+    bundleIdentifier: String?,
+    bundlePath: String?,
+    codeSignatureStyle: CodeSignatureStyle
+) -> Bool {
+    let permissionsMissing = !accessibilityTrusted || !inputMonitoringTrusted
+    guard permissionsMissing else {
+        return false
+    }
+
+    guard let bundleIdentifier, !bundleIdentifier.isEmpty else {
+        return true
+    }
+
+    let normalizedBundlePath = bundlePath ?? ""
+    if
+        executablePath.contains("/.build/") ||
+        executablePath.contains("/.dev-app/") ||
+        executablePath.contains("/dist/") ||
+        normalizedBundlePath.contains("/.dev-app/") ||
+        normalizedBundlePath.contains("/dist/")
+    {
+        return true
+    }
+
+    return codeSignatureStyle == .adHoc
+}
 
 public struct SystemPermissionStatusProvider: PermissionStatusProviding, Sendable {
     public init() {}
@@ -35,14 +73,15 @@ public struct SystemPermissionStatusProvider: PermissionStatusProviding, Sendabl
         let executablePath = CommandLine.arguments.first ?? ""
         let bundleIdentifier = Bundle.main.bundleIdentifier
         let bundlePath = Bundle.main.bundleURL.path
-        let runtimeIdentityLikelyMismatch =
-            (!accessibilityTrusted || !inputMonitoringTrusted) &&
-            (
-                bundleIdentifier == nil ||
-                executablePath.contains("/.build/") ||
-                executablePath.contains("/.dev-app/") ||
-                bundlePath.contains("/.dev-app/")
-            )
+        let codeSignatureStyle = currentCodeSignatureStyle()
+        let runtimeIdentityLikelyMismatch = runtimeIdentityLikelyMismatch(
+            accessibilityTrusted: accessibilityTrusted,
+            inputMonitoringTrusted: inputMonitoringTrusted,
+            executablePath: executablePath,
+            bundleIdentifier: bundleIdentifier,
+            bundlePath: bundlePath,
+            codeSignatureStyle: codeSignatureStyle
+        )
 
         return PermissionSnapshot(
             accessibility: accessibilityTrusted ? .authorized : .denied,
@@ -54,5 +93,37 @@ public struct SystemPermissionStatusProvider: PermissionStatusProviding, Sendabl
             bundleIdentifier: bundleIdentifier,
             bundlePath: bundlePath
         )
+    }
+
+    private func currentCodeSignatureStyle() -> CodeSignatureStyle {
+        var staticCode: SecStaticCode?
+        let status = SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, SecCSFlags(), &staticCode)
+        guard status == errSecSuccess, let staticCode else {
+            return .unknown
+        }
+
+        var signingInformation: CFDictionary?
+        let signingStatus = SecCodeCopySigningInformation(
+            staticCode,
+            SecCSFlags(rawValue: kSecCSSigningInformation),
+            &signingInformation
+        )
+        guard signingStatus == errSecSuccess, let signingInformation else {
+            return .unknown
+        }
+
+        let info = signingInformation as NSDictionary
+        if let certificates = info[kSecCodeInfoCertificates as String] as? [Any], certificates.isEmpty {
+            return .adHoc
+        }
+        if
+            let source = info[kSecCodeInfoSource as String] as? String,
+            source.localizedCaseInsensitiveContains("adhoc") ||
+            source.localizedCaseInsensitiveContains("ad hoc")
+        {
+            return .adHoc
+        }
+
+        return .signed
     }
 }

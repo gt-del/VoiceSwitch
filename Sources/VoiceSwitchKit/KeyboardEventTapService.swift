@@ -39,11 +39,11 @@ public enum KeyboardEventSummary: Equatable, Sendable {
     public var rawDescription: String {
         switch self {
         case let .controlPressed(keyCode):
-            return "leftControlDown(keyCode:\(keyCode))"
+            return "fnDown(keyCode:\(keyCode))"
         case let .controlReleased(keyCode):
-            return "leftControlUp(keyCode:\(keyCode))"
+            return "fnUp(keyCode:\(keyCode))"
         case let .controlTapCompleted(keyCode):
-            return "leftControlTapCompleted(keyCode:\(keyCode))"
+            return "fnDoubleTapCompleted(keyCode:\(keyCode))"
         case let .typingKey(keyCode, category):
             return "typingKey(keyCode:\(keyCode),category:\(category.rawValue))"
         case let .tapDisabled(reason):
@@ -61,9 +61,9 @@ public final class KeyboardEventTapService: KeyboardEventListening {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var eventHandler: (@Sendable (KeyboardEventSummary) -> Void)?
-    private var controlIsDown = false
-    private var controlTapCandidate = false
-    private var sawOtherKeyDuringControl = false
+    private var functionKeyIsDown = false
+    private var functionTapCandidate = false
+    private var awaitingSecondFunctionTap = false
 
     public var isRunning: Bool {
         eventTap != nil
@@ -174,10 +174,10 @@ public final class KeyboardEventTapService: KeyboardEventListening {
     static func summary(for type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> KeyboardEventSummary? {
         switch type {
         case .flagsChanged:
-            guard isLeftControlKey(keyCode) else {
+            guard isFunctionKey(keyCode) else {
                 return nil
             }
-            if flags.contains(.maskControl) {
+            if flags.contains(.maskSecondaryFn) {
                 return .controlPressed(keyCode: Int(keyCode))
             }
             return .controlReleased(keyCode: Int(keyCode))
@@ -198,19 +198,29 @@ public final class KeyboardEventTapService: KeyboardEventListening {
     func processedSummaries(for type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> [KeyboardEventSummary] {
         switch type {
         case .flagsChanged:
-            if Self.isLeftControlKey(keyCode) {
-                return processLeftControlFlagsChanged(keyCode: keyCode)
+            let functionModifierIsDown = flags.contains(.maskSecondaryFn)
+            if functionModifierIsDown != functionKeyIsDown {
+                return processFunctionKeyStateChange(
+                    keyCode: keyCode,
+                    isDown: functionModifierIsDown
+                )
             }
 
-            if controlIsDown {
-                controlTapCandidate = false
-                sawOtherKeyDuringControl = true
+            if Self.isRepeatedFunctionKeySignal(keyCode: keyCode) {
+                return []
+            }
+
+            if functionKeyIsDown || awaitingSecondFunctionTap {
+                invalidatePendingFunctionDoubleTap()
             }
             return []
         case .keyDown:
-            if controlIsDown {
-                controlTapCandidate = false
-                sawOtherKeyDuringControl = true
+            if Self.isSyntheticFunctionKeyDown(keyCode: keyCode) {
+                return []
+            }
+
+            if functionKeyIsDown || awaitingSecondFunctionTap {
+                invalidatePendingFunctionDoubleTap()
             }
 
             guard let summary = Self.summary(for: type, keyCode: keyCode, flags: flags) else {
@@ -225,8 +235,16 @@ public final class KeyboardEventTapService: KeyboardEventListening {
         }
     }
 
-    static func isLeftControlKey(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == 59
+    static func isFunctionKey(_ keyCode: CGKeyCode) -> Bool {
+        keyCode == 63
+    }
+
+    static func isRepeatedFunctionKeySignal(keyCode: CGKeyCode) -> Bool {
+        repeatedFunctionKeyCodes.contains(Int(keyCode))
+    }
+
+    static func isSyntheticFunctionKeyDown(keyCode: CGKeyCode) -> Bool {
+        repeatedFunctionKeyCodes.contains(Int(keyCode))
     }
 
     static func typingKeyCategory(for keyCode: CGKeyCode) -> TypingKeyCategory? {
@@ -258,29 +276,54 @@ public final class KeyboardEventTapService: KeyboardEventListening {
         18, 19, 20, 21, 22, 23, 25, 26, 28, 29,
     ]
 
+    private static let repeatedFunctionKeyCodes: Set<Int> = [
+        63,
+        179,
+    ]
+
     private func emit(_ summary: KeyboardEventSummary) {
         eventHandler?(summary)
     }
 
-    private func processLeftControlFlagsChanged(keyCode: CGKeyCode) -> [KeyboardEventSummary] {
+    private func processFunctionKeyStateChange(keyCode: CGKeyCode, isDown: Bool) -> [KeyboardEventSummary] {
         let keyCode = Int(keyCode)
 
-        if !controlIsDown {
-            controlIsDown = true
-            controlTapCandidate = true
-            sawOtherKeyDuringControl = false
+        if isDown {
+            guard !functionKeyIsDown else {
+                return []
+            }
+
+            functionKeyIsDown = true
+            functionTapCandidate = true
             return [.controlPressed(keyCode: keyCode)]
         }
 
-        controlIsDown = false
-        let shouldEmitTapCompletion = controlTapCandidate && !sawOtherKeyDuringControl
-        controlTapCandidate = false
-        sawOtherKeyDuringControl = false
+        guard functionKeyIsDown else {
+            return []
+        }
+
+        functionKeyIsDown = false
+        let completedCleanTap = functionTapCandidate
+        let shouldEmitTapCompletion = completedCleanTap && awaitingSecondFunctionTap
+        functionTapCandidate = false
+
+        if completedCleanTap {
+            awaitingSecondFunctionTap = !shouldEmitTapCompletion
+        } else {
+            awaitingSecondFunctionTap = false
+        }
 
         if shouldEmitTapCompletion {
             return [.controlReleased(keyCode: keyCode), .controlTapCompleted(keyCode: keyCode)]
         }
 
         return [.controlReleased(keyCode: keyCode)]
+    }
+
+    private func invalidatePendingFunctionDoubleTap() {
+        awaitingSecondFunctionTap = false
+        if functionKeyIsDown {
+            functionTapCandidate = false
+        }
     }
 }

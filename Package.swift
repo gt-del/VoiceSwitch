@@ -29,7 +29,10 @@ let package = Package(
         ),
         .target(
             name: "VoiceSwitchKit",
-            dependencies: ["VoiceSwitchFFI"]
+            dependencies: ["VoiceSwitchFFI"],
+            linkerSettings: [
+                .linkedFramework("Security"),
+            ]
         ),
         .executableTarget(
             name: "VoiceSwitchApp",
